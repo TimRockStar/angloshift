@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AngloShift — Tuteur IA d'anglais pour le travail</title>
+<style>
+  :root {
+    --navy: #1f3a5f;
+    --accent: #2e6f5e;
+    --accent-light: #e8f3f0;
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --grey: #6b7280;
+    --bubble-user: #1f3a5f;
+    --bubble-ai: #eef1f4;
+    --border: #e2e5ea;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    background: var(--navy);
+    color: white;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  header h1 {
+    font-size: 1.15rem;
+    margin: 0;
+    font-weight: 700;
+  }
+  header .sub {
+    font-size: 0.75rem;
+    color: #c8d6e5;
+    margin-top: 2px;
+  }
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+  button.iconbtn {
+    background: rgba(255,255,255,0.12);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  button.iconbtn:hover { background: rgba(255,255,255,0.22); }
+
+  .toolbar {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .toolbar label { font-size: 0.8rem; color: var(--grey); }
+  select, .toggle-wrap {
+    font-family: inherit;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: white;
+    font-size: 0.85rem;
+  }
+
+  #avatarBar {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 16px 20px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  #avatarPhotoWrap {
+    position: relative;
+    flex-shrink: 0;
+    width: 168px;
+    height: 168px;
+  }
+  #avatarPhotoClip {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    overflow: hidden;
+    position: relative;
+  }
+  #avatarPhoto {
+    width: 168px;
+    height: 168px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    box-shadow: 0 0 0 4px var(--accent-light), 0 0 0 6px var(--border);
+    transition: box-shadow 0.2s ease;
+    animation: avatarBreathe 4.5s ease-in-out infinite;
+  }
+  #avatarBar.talking #avatarPhoto {
+    animation: avatarPulse 0.5s ease-in-out infinite;
+    box-shadow: 0 0 0 4px var(--accent-light), 0 0 0 6px var(--accent), 0 0 22px 4px rgba(46,111,94,0.45);
+  }
+  @keyframes avatarBreathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.015); }
+  }
+  @keyframes avatarPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.035); }
+  }
+  #avatarSoundwave {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 38px;
+    height: 38px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    box-shadow: 0 0 0 3px white;
+  }
+  #avatarBar.talking #avatarSoundwave { display: flex; }
+  #avatarSoundwave span {
+    width: 4px;
+    background: white;
+    border-radius: 2px;
+    height: 10px;
+    animation: waveBar 0.6s ease-in-out infinite;
+  }
+  #avatarSoundwave span:nth-child(2) { animation-delay: 0.15s; }
+  #avatarSoundwave span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes waveBar {
+    0%, 100% { height: 6px; }
+    50% { height: 16px; }
+  }
+  #avatarName { font-weight: 700; color: var(--navy); font-size: 1.15rem; }
+  #avatarStatus { font-size: 0.85rem; color: var(--grey); margin-top: 2px; }
+  #avatarBar.talking #avatarStatus::after { content: " (parle...)"; color: var(--accent); }
+  #avatarGenderSelect {
+    margin-top: 4px;
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    border: 1px solid #d7dde5;
+    background: #fff;
+    color: var(--navy);
+    cursor: pointer;
+  }
+
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .msg {
+    max-width: 78%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    line-height: 1.45;
+    font-size: 0.95rem;
+    white-space: pre-wrap;
+  }
+  .msg.ai {
+    background: var(--bubble-ai);
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+  .msg.user {
+    background: var(--bubble-user);
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+  .msg.system-note {
+    align-self: center;
+    background: transparent;
+    color: var(--grey);
+    font-size: 0.78rem;
+    font-style: italic;
+    max-width: 90%;
+    text-align: center;
+  }
+  .msg .speak-btn {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.72rem;
+    color: var(--accent);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    text-decoration: underline;
+  }
+  .msg-main { white-space: pre-wrap; }
+  .correction-note {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: #fff3cd;
+    border-left: 3px solid #c99a1e;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #6b4f00;
+  }
+  .translation-wrap { margin-top: 6px; }
+  .translation-toggle {
+    display: inline-block;
+    font-size: 0.72rem;
+    color: var(--navy);
+    cursor: pointer;
+    background: #eef2f7;
+    border: 1px solid #d7dde5;
+    border-radius: 12px;
+    padding: 2px 10px;
+  }
+  .translation-text {
+    margin-top: 6px;
+    padding: 8px 10px;
+    background: #eef6f2;
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: var(--navy);
+    font-style: italic;
+  }
+
+  form#composer {
+    display: flex;
+    gap: 8px;
+    padding: 14px 20px;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  #userInput {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: none;
+  }
+  #userInput:focus { outline: 2px solid var(--accent); }
+  button#sendBtn, button#micBtn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 0 18px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button#micBtn {
+    background: var(--navy);
+    padding: 0 14px;
+  }
+  button#micBtn.recording { background: #b5443a; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Settings modal */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 50;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 14px;
+    padding: 24px;
+    width: 90%;
+    max-width: 420px;
+  }
+  .modal h2 { margin-top: 0; font-size: 1.1rem; color: var(--navy); }
+  .modal p { font-size: 0.85rem; color: var(--grey); line-height: 1.4; }
+  .modal input[type=text], .modal input[type=password] {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-size: 0.9rem;
+    margin-top: 6px;
+    margin-bottom: 14px;
+    box-sizing: border-box;
+  }
+  .modal .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .modal button {
+    padding: 9px 16px;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .modal button.primary { background: var(--accent); color: white; }
+  .modal button.secondary { background: #eee; color: var(--text); }
+  .modal a { color: var(--accent); }
+
+  .empty-state {
+    text-align: center;
+    color: var(--grey);
+    margin-top: 40px;
+    font-size: 0.9rem;
+    padding: 0 30px;
+  }
+  .empty-state strong { color: var(--navy); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>AngloShift 🍁</h1>
+    <div class="sub">Pratique ton anglais de travail avec un tuteur IA — entrevues, usine, collègues</div>
+  </div>
+  <div class="header-actions">
+    <button class="iconbtn" id="progressBtn">📊 Mes progrès</button>
+    <button class="iconbtn" id="clearBtn">Effacer</button>
+    <button class="iconbtn" id="settingsBtn">⚙ Clé API</button>
+  </div>
+</header>
+
+<div class="toolbar">
+  <label for="scenario">Scénario :</label>
+  <select id="scenario">
+    <option value="interview">Entrevue d'embauche (usine)</option>
+    <option value="safety">Consignes de sécurité en usine</option>
+    <option value="coworker">Conversation avec un collègue</option>
+    <option value="supervisor">Parler à un contremaître / superviseur</option>
+    <option value="emergency911">Appeler le 911 (urgence)</option>
+    <option value="medicalAppointment">Rendez-vous médical par téléphone</option>
+    <option value="landlord">Discussion avec un propriétaire (logement)</option>
+    <option value="free">Conversation libre</option>
+  </select>
+
+  <label style="margin-left:8px;">
+    <input type="checkbox" id="ttsToggle" checked> Lire les réponses à voix haute
+  </label>
+
+  <label for="voiceSelect" style="margin-left:8px;">Voix :</label>
+  <select id="voiceSelect" style="max-width: 220px;">
+    <option value="">Chargement des voix...</option>
+  </select>
+
+  <label style="margin-left:8px;">
+    <input type="checkbox" id="examToggle"> Mode examen blanc (entrevue chronométrée, 8 min)
+  </label>
+  <span id="examTimer" style="display:none; font-weight:700; color:#b5443a;"></span>
+  <button type="button" id="endExamBtn" class="iconbtn" style="display:none; background:#b5443a;">Terminer et obtenir mon évaluation</button>
+</div>
+<div id="voiceWarning" style="display:none; background:#fff3cd; color:#7a5c00; padding:8px 20px; font-size:0.8rem;"></div>
+
+<div id="avatarBar">
+  <div id="avatarPhotoWrap">
+    <div id="avatarPhotoClip">
+    <img id="avatarPhoto" src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAEAAQADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDzL4c+GfDGs+CtN1C98P2L3DI0cjkHLlGK7jg9Tit1vBPg4HH/AAjlj/3y3+NUvhI5j+G+mHBIzKf/ACK1dbC3nDOOK5m3cpLQwU8DeDzz/wAI7Y4/3W/xqeHwL4NY/wDIt2BH+63+NdGEURnHpUUQdCAtS5MpJGbJ8P8AwSIwR4Z0/P8Aut/jUCeA/BbNj/hGdPH/AAFv8a6mDeZFSTpUsyCOTao4pczHZHLn4f8AgzAx4Y073+Vv8amtfh34Kckv4Y0/H+63+NdXDGGUVMVwcAU+Zisjlf8AhXfgXP8AyK2m/wDfLf408fDrwJ/0K2m/98N/jW9M8iygKuQatRgkZIxScmFkcq3w88ChgB4V03/vhv8AGh/hz4GUf8ivp3/fLf411EpCiowz4yeRS5mOxzA+HfgfI/4pbTv++W/xqZPhx4EPXwtpv/fLf/FV0yEHHSpVGSRRzPuKxxknw+8DLLsHhXTiP91v/iqlHw78CCPJ8Ladk/7Lf411EiZkpxUFcGjmYWRyDfD7wNu2jwtpoz/st/8AFU5Ph74EVsN4W05vqG/+KrpmiKnvThGTgnijmYWRzTfDrwGcY8LacPoG/wDiqc3w78BAD/ilNOJ+j/8AxVdOI2DAAU+RRkDvRzPuFkcmfhz4DPTwtpw/B/8A4qo/+Fe+AhnPhXTz+D//ABVdY2Bxmq0rfNinzMLI5l/h74E6jwvp4H/A/wD4qoj8PvA5/wCZYsB/33/8VXWEfLz6UxRkZNPmYWRyb/D7wQP+ZZsP/H//AIqmt8O/BJXK+G7If99//FV1si0gH7sjvRzMLI41/h74LA/5FyyH/ff/AMVUL/D/AMHdvD1l/wCP/wDxVdfKD07VDgEHFHMwsjlW8AeC1jyfD9pn6v8A/FVWPgXwcScaBafm/wD8VXXDBBGaoujJMdvSjmYrI5yTwN4PHTQLT83/APiq5v4j+HPDWi+Dr2+s9BtUnO2KJwWyhZsbhz1AzXpRQFK4v4zpj4e3XoJ4T/4/Ti3cTSsaPweTd8N9K+kv/o1q6uGFkf69hXPfBqL/AItno7c5Il/9GvXXW6l5tveh7hHZCxRjy8sM1EmBdAdvWtCGIEMD2qltxPjGcGoZaLsCATZzz2qW7UcORSY+ZGWp7rJtyQMkUAFp8yVMyEgnFVdNmLfIyke9akMeev4UwKMQLdVGRUpBFW/JRQSBULDOcVLApyruIoChU5qaRehyODTmVXGaQEEK7mzjpVpUOM4qjq+p6foWnSX+ozrDbRj5mPUk9AB3J7CvKvFvxgkMottKtJrWHcMzuyhmHpjnHv3pjseq3Go2C3j2r31sk0Yy8bSgMv1HasrWPFej6fEPKnjupz91FkAH4segrx23uLW9E+oxXmbhzulaUs4LdeSD8p+oxiucvNfaW9a0vbZJQuQgbkPjsGHI9jz+NK0nsNqMdz13/hZ4Wc+fpkPkgkZjuCWH5rj9RV+3+I+hzIp8i6Bzg5UAA+5zXzxqtxBcEzae80RxuCE9R/iKvaFqzvaOkrkHIilY+h+6fqD+lVySSJ5ot2Pp7SvE+kXwWOOUI5HRzyPqDg/j0rWlAVOefcV8t6F4juNNIeX95CJCsiE8xnqGU9jXu3w18RjWtNMTyGQx/ckPcehz+n4+lLyYadDpWXjpUbxELu29K0TGmwEjryKhfbtI6inYCgAWPI4p+wY6VOicZpCoBxQIz51k3YDACmx/KPmOTVq5Rdwz3qNo1x6CgZDIvmKcGoEgYZBq4i84FIy4OaBGdJHtPvVeZcVauWAbGagfntQBXAJOMVyHxojYfDq+Y9POg/8ARgrtADu61yXxsH/FtdQ/66wf+jBVR3E9jX+C8ZPwu0Rs/wAEv/o16621XF02PSuY+Coz8K9EHH+rl/8ARr11KZWc+9OW4R2LttGfnBqlPBsnLA7a0IHABPfFUbmSWW5VVjOO5xUMomSIrGGLdOabG7vN5YPBqzONsAUemKqWZMc4BB5PBpAaEFuyruIAq1ESRhcZpJZcIFpkLqjbj3oAsEHbg1EU9KllcGPg1GCCABQxFaeJlx7mlk8qCJ5ppFiiRSzu7AKoHUknoKnZSxHtXkX7SmpTJpmnaRDKyLcM8rqDw+3jHv1zSGZnxb8TabrUtqsVx5+mWkhYLGM/aJegx7AdD7mvOtV1SGKFjBaweYePlQMF+rHqayhJI8sELbiqYAwD8zE9BmvYPhh8Hr7xfdR6vrZkg0lSPLQDaZQPT0Hv37VlOSh8R1UaUqitFHlml3Gp3L8I/mqNoeJcFlPODjrin3ui3lzMAtvIkpbJAXCk+uO1fb2h+A/DOk2a21lo1ogC4JKZJ/GlvPAXh6RDs023Td1wv+NQ8RPdI6VgopWkz4dk8N3ogZokO9CflHp3rKmt57OKdJIXXzW3Djp/nmvtWf4daXazGaIHOfmGBg/5zXFeLvhxpGoo+IfLxnlQABSWMcdJCllnMrxZ8qyzl1mB3YZgfoa734WeMB4fEqsGk8xfujjoev5Z/On+Lfh1LpRJjbchPvmuDuLe40u/Hmb1GflZa64VYVV7p51ShUoO8kfSfhr4labqEuLmeC3bgeWyuuf91j8pPtxXfsQ0G9CCGGQfUetfHC6tLY3S3Fu55AyvY/nX0L8FPELav4d+ySS+b5APlnPKrx8p+mePb6U2mtyFK53qZ2U3ndTlZQDijGRmkMrzRFpFb0pkqApirLcLULEVIyGJCFptwMRnnFTg89KgvBmIimgMs4ZyetDKM08jA3AYApFAcZzimIgcZ6VyHxnz/wAKz1I/9NIP/Ri12uwDIzxXH/GpcfDLU+P44P8A0atVHcT2Nz4Jx5+FmhH/AKZSf+jXrqmiw+7Ncv8ABh9nwn0H3ik/9GvXUMST1zk05bjjsWAilcg84pkUuHWM4zT0AMfXmmIhMwfAwO9QMsmNSd7DPtTGCtMu0dORSSsTyM89qSNmVwdp4oYFtl34B4pxiATPfNNdvNhBGQw5p1kS6EN2pCHRpxk0oADCpdmDkjinGMEBgKABE6V83fE/V5td+Lf2K3P7q0YWkRXBI5+cjPCkknJ9q+lIxlgAa+Z/CUUTfGG+eNpJIVvZnV2ADfeYA+3ND0Q46tI9O+Fvwr0zV9Qn17VrUfY4ZfKsoc8TbT80jD37D0r6H0u0SKKOGNFREGFVRgKO1Yfhq2FvpVtEgAC44Hr3rqIAAM5wfTvXn7yuz3ILkhZFkWu1MqB7VCy7Rj5SCMnjmrIlCpx1x3BqnI8ZbkKPeuhqKRkuZ7mZqKAo7fhXLXcJG8nHOee1dLcskkcnTJJzXNaiWMA37AqntXFV7nfS7HmHj6ENDKDhu4PpXiHjGxS4spCOCpAHtXtXjd+GQbjuO0cZ615V4qj+zwvHxlmFLDycWY4yKknc80uY5Vtcud4R9hUjofrXqP7Mt0//AAkuoWSltjWhl/EMB/I157ryIkblUwzMMnPtXefsw2003jm8uImAihsWEinqdzDH6ivb5uaFz5lxcZ2PoBDyasonqaQxhWzinDIrI1GTINpqrjBq25B6moCu4nbSYw+X8ar3ikxkCpwpA54qG7bC/L+NCEZL53+Wc8UfLHipCXMu4pxQ8WWHHXpVCEUqQMjNcd8bv+SZ6nj+9D/6NWu1KfKABzXGfG1SPhhqhPZof/Rq1Udwlsa/wbGfhToI/wCmMn/o166kA7gB0Fc78FYt3wo0Bv8Api//AKNeuqRR5mOMCiW41sCqShA61LD9wr3Ip6qD93rik3BZAvFQMWJCpyOadLG5I2jA7mpYwcAjBqQtx7UAJaRqW2k5yKseWi8dCKhJVGVl4X2qV/nBAIz2oESSOiQEsQWxUFtLK6kFcY70JHuiIfkip4CHhxikAtuQWG31r5p0iY6Z4/1GVtpZdRnjYvzgs5AP15/CvpmBcOABjmvmmIDU/H8VsSqzS6vI/HVgZSQDn2qKjtE0pK80fXfhaPbpdupJPyc5GDXRQQMCG6DHNYcc0djYxsxwFAUHtxWDqeveJNkv9nWU1xIwypjUfyrjUlHc9tpvY9EZRs5xWPqMiRRvLvIUAk814f8A8Jp8Qoda2aoogRTkQqoY49wOa7ax8QzatpyQEGSeZgNgHT8KJV4vQdKi1qdpYBJLWVX+8iBjmua1eaAiQeXvVcgY7mqXiTXo9C1Wa3vpzDHJaEjceCQeOa8i8TfFjJks9O+aUO2NibywPtWUpc2iRsnGm+Zs2vE7G5kkEEDZTnIXp615H4tSSPHng7i3HGMDmut07x1rLSubnRXSNlw8jwlcD1x64rkvGOr2WqOwg4kBz/8AWp04OMjmr1lOOh51rchM7qenFevfso2G691zUgzfJFHDweDkk8j1GB+tePa2Nt4cjhlzXu/7KAT+w9fbJ3fa4gR2A2HFetD4EeBP+Kz12cDaahDhcBupqxcFQMDvUDx528DpUlCSqNuVqBTkFh2qaJiCYm9KYUCxsQOTSGRyngE5qOVAw3DHSlKMcAn8KULtUg/hQFylKVAwBUQGPm5z6VYMY35PJ7UzdtOMUAQmT5sYH1rjfja274X6tznDQ/8Ao1a7aVUCl8c1xHxj2v8ACzWSOxhP/kVK0juTLY2vg1ciP4UaApxxA/8A6NeuognXeST1rkPhAgb4WaAPWB//AEa9dZFAAw4oluNbFmN2LZ560rKPMDEGlGEb2NPYHjGCDUDHQsyzA881eZVxk1nqHWUcdOlXlbcoBxn0oAmVQSvAIxSyxEEEVC8ojOAcd6VbvzEVsgc45qQLAXbGfU00BlAINJJKMA5/KnPJhRhc5piuEbS8hEDyEHYp4BPYV4to3h25T4tWk93bi3eeRLsqDkAFsAZ9M/yr2yzkVbuAucDeAfbPFUfGGnmPxZ4YdYv3duwincDkd0/DOa5a7cXfyPTwcFOm+6aO6ljhntfJmhadRhgq87iOg/OuF1nwj4312O6luPE1tpMT5MFlZqcRegkbqx9ePpivRdMVnjRcEk+vRff/AD1pdW0tJ48OxIP8SnB/OsI6q9jutZ2TPnC5+HPiOPWLya81S3nkabNqiuVWPngb2+fp3yTXsXw+8O3WjJHc311FcM4ypXkp0yue/Pet3TvC+gwT+f8AY983XzJHZz+GTxWnLHtZQECRrjC9MUKLb5mUrJcqPF/2soo38KPdQjFwki7G9ieRXi/wx8Have3RZFhLNGzJJI+UL4OBtBBIzjJJx7GvbP2pon/4R6OKMM6tKGIHTn1ri/hWqXFl9nnVomLAbkO0+x9qPaON/UmVJTkrdjP1+H4kWM13Gfsa2aZEUJZXbbgcZCgE9ewrzHUVkvLo3EkRtJVbbJHz1x1/GvpubwRc3bnztZugoHHmhXI+hI/WvOfHOiaHpe+3igBnGf3pGGkb1JpKrZ6oiph3y73PBvEy/vY2XH3T0Oe9es/srXjwahrGmFcme3W4Jx93a20fmGrzDxMqmaN2PIcrwMcV6n+zHau/iPV7pQTCtkqlvQs4wP8Ax016MZ+4kjxZU1zykz2d5XSYlhkVaRg6hh6dKWWFWbB5pjRNGMg8CmZla6IyMKQ3rSjd5SluaRzvckU/KbNpYUhkW4DpUMjktxT3K5IzgVDjapIOR6UAN39zVeWYA/dp0hxVWR8PxQMUXBeNlbHPSuO+Lvy/C/WkPXEX/o1K6oyQliMHIrkPi9l/hlrEn/XIf+RUrWO5Etjofg1EzfCvQG/6YP8A+jXrsEQlc/3eK5P4LyiP4VeH93T7O/8A6NeutaQMPlOPah7jWwMM8GpgFO0MOnSoNxAyaSO43zCPH41IyzKSrZA49qcjEkNSR4JPpTtpAwuAKQhzDzFPHJqOODKENxzxTw3lhcnP0qwoBGaQDo41VME5NLu2oR1x3pD94VHMzE7VpgV5XcvuXjHIru7yBW0iXUt4PnW4GOvTBB/OuJCnIBAro9L1u2j0ZrG+RvkRkjIXdnPT9TWFaN43O3BVOWTj3OjsLlI7eNmPUAmpNe8Q6bp9kZrlwqAZJPFcvJczLc20B5Qwsw7ZIx+mCa8u1q51Xx14pm0aykaDRrObyru6DY8xx1jX+p7VxwqtRsj11Tg3zSPTfC/i2fxBqUjadaeVpcLFWuCOXPoD/Wuwk3SSQxsyDcepPaud0Gyt9K0mPTbaNEijjwAvIx9K5vVrW50CG4vdOvJzC7FjBLMWVSeu0Enb+BxWsYtLXUJSjJ6aGZ+0NOsmiS4ZNo4DHtivFvCWu23hm8ty9w1zHcrmRM52H2qh8XfE3ifU4o7Oa2mS0QkgnoT6+9efaWLxrpJJ3dgp4yaXs+ZOTZjPEJTUYrY+xtI8SWt7pSTLKrqVyDmvJfizdwzl5lk+YfdOeQayPDOs3S2h+zRu0Sj5lA5/D/CuZ8b6pLdXcapnEmcD8P8A61YKMnLU6KtWPs3Y5HWv9IQhOXduB6E17t+zXp7Wvgq9uyPmurwqD6qigfzJrwm3jmudQhtrZHluJW2xxIMs7E8ACvrTwjpI0Hwrp2l7AskMI83b0Mh5c+/zE16VNPY8Gq1bzZpdDkioLht3ShpMEgmoJHII9K0OcQ/KMdKh2IxJz8wpHuVwSccVVWYszMh61IyaQLzUQfaCCenQU2NnLkP+FEy5GOmKBkM5yDt5NU5RJxnir5VQMjmo2AagGVI4gTkjg965v40wCL4Wavt6fuf/AEaldc4CqBXKfGsk/CvV/pF/6NStI7kvZmx8M7QWvw00C2W4inH2MP5kRyp3MWwPpnB9wa6KNiGAwSMda5j4OYPwt0D2tm/9GPXTxna5z603uC2C4k3FUX15qS3UCUDvVK5OyXfkdQMVcts/aATxUgaA4PAppdgxD9KkT/W/N+GKLhC43bTzQBWV2zt469av27YABGaoQJI0nKkYq5EcHaetSBNty1HlHdnimmTC8nJpVYnHNMAA+fBH40k3ygGpRjGahuT8mDSA2s/aY7eRWPyZBI7Agg1zN14SuI41sdKuVtcXMt0GMe7LOc8juM/pV/TNQ+zzLDL9yTgH3rotOdGuBuO6SM8d8gnrXlOFpWPoYVOaCaOS8MJ8Rn1yfTNYHh2xiiCtbXW2VkuUOdxHPDLgfKfXrXVXuj+LHgKvp+jXkY3kESFMhTgHkcE1uXqW01r+/iR4x1VgDxWBqE+jxRsbTUb2yZ87jBcEAknJxz1J74rqtEPffw2+aPGviXZeJ7+IRnwgIoW3MrG4VjgAkk46Dg14PrV3c2N0LJ7FllcAqsbbjz0r6Y8bxaPdWf2e41/W7pIwdqy6g+DwQfu4Jzk9TXjLrpo1X7LZQpGgb55gvO0dOTz0GKmMox8wrUZtXk0vQ0fht4c1q+tkE6PCkz4Cs4yq/wARPp9KwvFqwN4mufspzb2azuG69WIUfzr0WLXofDvhO91C4KhjF5cKA4OD0z6k15NDJc3VqthAPM1HV7hRt7gE4VfzNTBOUrnPWlGC5bnuXwF0u2i+Hlnfy2sJuZrmeWOVoxvVSQvDYyPumu7mfGRVXQ9Pg0PQNO0aE7ks7dYd394gfMfxOT+NS3ODGSDXoJWR47d3cpzMC2Qee9RyElcrUc3Ck+tLACYsA5FIRnztuYqF/Gi3QhgM1JONshAGaSM7evGaAJZHVXycVG0iuTTZgpyc5qEDC8GgYOxGQKjScZ296a55NNXkF8UIGSyvyB71yfxmct8MNYz02xf+jUrpHlXGT61y/wAY3DfDHVhnPyxf+jUq47kvY2vg6T/wq3QAo5Nu3/ox66LEhlIbgZrG+E95Je/DbQLmYIJPsoT5FCjCsyjgcdFFdTtV+wzTluOOxSFms0oXc2AQa2PKQKOOagtIypJI5zVkdcmoGBKlhgc1ZDYxkcVXCggNmphg8k0CHgqDgAVDJHmQSUrElwRT3yMHBxSAinTMW4daRSwjVlGSO1SsMkr2IpqKUGM0wFWXI6YqK5BbaB3p0p2kHH1p0ZDc0AOWxF3p8kSsFmQh4mPZqseHL750ScFJ4W2SqOqj1pugTs+qXdvk4WKNlI9y3+Aqv4os57WQarY8XCDDp/C6+hrgxEeSq0z2MM+ehFr+tTuiNwxuPPBNczr+iidjLAiNjOPnHHvzR4Y8T2mpWO3cyywjEsTHDAf1qxfalbzW5FpOrAHgr1+mPWm7WOmk30PNfEnhsvZzxMzYLdfMAyfSuO/4RMWVtPe3wVIkyFXP329M969M8aajbwafuEiI6ICS79K8P+IHjxtStE0+1c+VDwD13HqTWMYSlKyNq9SnCF3ucz491uS/1UWPmbrW2bkDoxFVvAEpn+ImhF3A/wCJhCSScAANXO3M2WY7su3U1CZTFDJIrEMBwQeQa9GMFGyR8/Oo5tyZ9rXJbd6etVpZSFw1Ynw81x/EPgrS9TmkV53hCXBH/PReGz7nAP41q3kmzkjIrWSs7HOmmrkM5UkZJxUdvOFZl7dgajluFIwo596hVXkkBDDA54qBjp3DS598U12OQDTtikFe+etI7IMDHIoHYREYnJ6Ukq8ccU1nbfnPFMmc7Dz0oAjYAZycmo2kwh4xUfmZHXmm8OCOtCAa8qhc8GuS+Lcu/wCHOrYGBiP/ANGpXVCLkg9K5X4vx7fh5qrA8Yi4/wC2q1pHciWx0/wZH/FrdAI/592/9GPXXxA7siuP+Db7PhZ4f4627f8Aox67GJgRxRLcqOxbiHBOeaD8vemxMSp9acXXO04qBikFgAGxUkL5JU9qriVPNCZp7OQ+BSAtgAgEdqV5FZQAckdqrxlsYU80qDa+O+eaEAqli/sKkcjZnv601gqsSO9RzyIBgtg9hVQhKcuWKuyJyjBXk7IV2zGe5xVdJWU4J59KR5W5VFJYdgMms/RJzdWYujnEjOyOf413cEfhXsYbK3fmqv5Hl4jMV8NNfM0bK7TT9Ztb2d9tvcD7HKSeEfdujP0ySv8AwKurnh82NkcZUgcGuOu7WG/s7rT5ziO4jIBHVT2I981Z8E69PdmTSdVIXULI7HbtIvZvxH65rzM7wrhV9qlo/wAz3chxaqUfZN6r8il4i8HS3cjXWmTSWU4yyvGduDXlfie88e6FcvC3mzxk7RIFznH0r6KllMaEBsBepx19qw/EUNtfWUiPCqSAZ3MOSK8aLcfM9epTvtofJ/ibXdduw0V5LcLETyh/qe9ctcSuV6Yr1f4mraWhaBIo93rxj8MV5i1q81xtVSQfau2lP3drHm16cube5mbWbk0eW083kgHao3P9BWrc2bRA/Lz2FSahbLpunbZBi5mG9/UDsK7cJT9rK/RHBjJeyjbqztvg547svC1xdWOsPKunXIR1dF3eVIOCSBzgjGcegr3SK/tNQtI7uynjuLeUbkkjbcrD618fjJ4AycCup8J6xq+jHzdNvJ4RnlAcoT7qeDXbPB+1bcXqcEMV7JJS2Po6YJ5hJA5HFLblUjbArzrw98SIrkKmtWphkPHnwjKH3K9R+Ga7uyure6shPazxzRMOGRsiuCrQqUviR20q8KvwsnLKpJz1NQFssSelMZiw9MGmDIPPesDcmdxtIHpVdnJUg0jSIH2g1HKcxsc0CK8ylcfNRE4DHJqIN8vOc0rDKgimImeXbz61yPxelY/DzU17ER5/7+LXTyn5AO9cr8V+fh3qp9ov/Rq1cNyZbHUfCE5+Fmgf9e7f+jHrqBMYyDnjNcn8Hyf+FY6CO32dv/Rj102VcgA9DTluVHY2LeTKg4pVXezH1qGEqqcngCltp1Jxk9etZlE0MA5ZhyOlKp+YknikWcbio6UikEHPemouTskS5KKuycE5Dr0oMgE24nGarrMxBjhjLenNPjttzK08hzn7q9q9Kjls3rV0X4nn1cwitKer/ALm6O8Ki5OQD6/hVWFXlYux+TJy55+g+tTXEkbNJboAoVM5+tWrRFSNYtuABngfpXs0acKK5YKx5daU6rvN3KWu74vDl4IiUcQsFIPOcdfrRoMKroFgowBHaoBx6Dmrl7CtxZPDt/1yuBntxVXQDnSIIWXIhBjYkenFbIyfQiSXbcCJuCrZznqKxPiHqGnaVc6benUoLTVZ51jtUPLXHIG3aP4c4yTwK3FAmjkRh+8iYr+PY/Svmv41T3i/F5jfNMscK262xHVYgoOV/wCBbj9a58dGE6VpK6ehvgJzpVbxdmtT6j8PeJEv41W5Uwyj5ZI5PlwR1HtTvEl5HFYOsLgsVyueQfb/ACa4nxVNp2njS38Nas2qJPafaAWkXzFUbQQcAcZPGccgjtVTSvGUNzEYrgGTt83BH+NfGYvCSw7TWsXs/wDPzPucHjo4qOukluv1XkcD4msL3UdReaZY/mYnCdTVLT9AkgikupAAASBnrn39K9Tv0GpusenWihW+XLjA9+nWuI+K/iWz8JWqaDp6rcawFDPIQCtvnofd/TsBg0sPCdaXJH5hiZQoR9pL5GVbaVZWs0+o6nc2vnQRidLJnHmEdnZeu3/PevNPEd615qcspbO5yTUWhy3Vx4h+2zTyHaHlu5mYk+XghsnvnOPckVTjYyzZPJz0r6KjGNOmoRX/AAT5ivKVWq5yf/ANPToDJBLMe2APqT/hXWabp+LduOSM496yra28uygt8fM/zN713Wi2qyRqvQlcY6cV6VKn3PKq1LvQ5m1gEjs+c+U4DD0B/wDr10WkPqVhKJ7OV4SVz8v3X9iO9Zuk2xbWby3fIjSQK+PzFdfYwpCsaphhtPbPGa1jFSVmroxbad07M09J8URzkQ6ggt5OnmD7h/wrbEnBZGDKeVOeDXJ6xZQ21gLkxBsAnGevp+VQo2oaayvbTExy4KxsMr9MdjXl4jLIyd6Tt5Hp0MxlFWqa+Z16YJLetErgJjsawbLXllPl3SCJgcbh0/8ArVp7sjLNkHkYryKtCpSdpqx6tKtCqrwdxZsdu9RGQquD+FLIwzxUTsDxWaLY4Evjmua+LDf8W91Rf+uX/o1a6EyBOOM1y3xVl3eA9SGevlf+jFq4bkS2Op+EJ/4tpoOD/wAsGH/kR66aXIIK9c1zPweTPw10N8niBuP+2j11Ozc27diqluVHYmgMki/McetWUA6jg4qKHaF681JH8xAz9TShBzkox3YSmoxcpbIfFGxIJJwxwAOpx1q1FbE8vgAfwg/zNTW6R+UmR836ng06V/LXGcbv0r6PD4aNCNlv3PBr15V3d7dhYCqRlUGAPQdKSZxHFv3cuc80RYwRye3pVG5u1e5e3BHyDIGa6LXMW7FPTXabUpJm6qMAZ4rdVlLNzyBke1c/Zs8F+xdRukc457VtpuIQ/wAT8dOgrTl1MubQaJd948I42RDjNLYosMc9upOHkYg46dP8Kp2ryNqkw3DJQjk9s8VdlkCA7yDjHAApMa1RRvh9n1SC5VSVkBjlUd+4P+fWvOv2o/D2nC38N6lY3C3WoySbJQgyyAqXxx2GM8+telXarPYugJVmHBHYg8GsG60q41jxDpeo3V+YU0uKYLbKv+sdxtJYngrt4xUVIuSSLhJQbZyej6fp6QW1xqFgWd41YywttZOx6dRnnFY2qx2dj40WOyLC0kAZGLby5JO76HJ6V6HJDDYho7i2Qwn/AFRUZ8s+nP8ACegPY8Gua1nRY5900dr5cyOHXY24q3bPsa5sywjxFBxjutTpyvFrC4hSls9GemeDdNja0zvRXI+UryRno2D1xXyB8QYxH4p1RrjUZtQuhdyLJM4A3sGIzx9K+idW+Idr4Q8EjUjtkvpAYrS2J5Mo6k/7K9T+A718xWyXGr6n3kd3LMfUk5JrwsrpyUJXW+x9FnNSDnGz23+djb8K6DJrFr9iF3FZGcNNJJJ3CAbV/Umn+GPDM13dLMQTAG+Vsfex3+ldHo/h2+vrdobURiMIEEki9CSNz9PTgV3htbS0gNrbR4ZF2ZA6cAYr6CGFtK7Pl6mLvGyOOstPU3EkzKNqllTtwOK3tN3yaukcXy7FG7HpQirHapbFRuLHHqO/9K1vCFmyTS3DkjIwDiutQscXPfQ5G+KW3iy/h5KzAOAOOa63RYZZLVG43g9CO2K5fx3Etv4lhmX5QTtb3r0Pw5Fu09HI2hhnjvwKcVa5W7KOu26Npj2oxu2EjI61k6ZI11pBRwS8RCk4/Kty7uYrnV5LVlJSMZLFfasfTkW21K7tZM7SA6HGCRk0OIKXYfc6fCt6UI4uEU5HZwOcfXr+FVLWaezkeLdvgQ5YE/d9h+P866GWESWKycAIyuDnkEVy5uo3bVBFhxvTcAeuASR+lc9WjGa5ZK6OiFVwfNHRm7FOk0SOjZVqc+0/dNcboGpPa6vNZyufJnlJiY9mPT8+n1FdQJSRjvXzWIoOjUcWe/QrKrBSQMcsec81zPxPA/4QXUcHvH/6MWt2SYRvtPU1z3xMcN4Ev/rH/wCjFqI7lvY7r4OFf+FYaJntC/8A6Meujl+6ducZrlPhGW/4VlomDx5Lf+jHrp/MG3aetOW5S2LNuP3Y5JNWrLHLHPGapQPgVbgwiSEdiAPr3/nXq5VRu3UfTRHmZnWslTXUvwyMhCZI2+3vUV/KfIVixLIcH3qLzA7MqL5hOQQD0+tVtzn7REeNwDqPxwRXs2ujyeazsaSSiKzMzktxuwPpXO6BObzVbmRztUNlR6A1J4vvls9BwrZeUhFAPeqfgSM+SzMARI2cjr04/KmlaLZMpXmom3dRhb+LaQcnr6cVqZbcF3AhVPJ7cVXWFjdbyybFOFA5qSUlYpnPYcHPrST0Ka1sU7eQ/aydxPUZPU1ecsVJPpkEmsmElbhSUC8bQSe3v+taQKuhBCY6c1LKQwbsByvTng1DM2ZFkC/MARkDrUyyjay4AAbnPGOKicfOOPyFAyq6rO7RzINkgYkkdCfb0rE8Ro+k2R1Z2VY7VT9pDHhof7w9T/Mj3rooQ7MuYyST09q86+PGrNb6Hp+l5LxX10GniTq8SEEj6Fiv5UOo4JtCVNTaTPG9evL3xp4jmuIImjgeQrFHniNSeF+p6k+prr/BvhqK1Dlw27zDHuC+hx1/A132k6HpWoXMF9pGnm0tzsUGRdjMQT0Hpx1P8sVf0izt5bW0MaKqMzS89yWJ59awwsNFOSs2bYmo23CL0K+m2X2a3WOFCoY7eRg4/wAimCAkFgx3uxY459cVtgKkRTdtOMA96p7liLBioUDAHtmu04WYgs5JXG7YASUAPY102nRmL9x8hAQcAdOOay4eXUhdoJ3evfrWgkjAymMmMEhcL3oYR0OM+K9qxurUqgVNuST3+aus8Nyr/YVvKCdojAJBx2//AF1T8a2hu7GF3KgQsXOep45ql4Yu2gia1kkDRg4QE5wDUpD5rMi8OSGTxbdedIsnBOST0q1r9t9nvIL1c5dtjcds1iaHconj2dImwo+Tg5rrtchee08w4YoVYZPbP/1qvcS2IfEeox6V4TubhiPlQgAn1rz/AEmKRtCV2z5kwaSTHXJOF/TNa3xmu9vhiC3Q/NcSouM5yKq25Mek7dxzIQFUdSoG3+eazj8TRc2+VM5jW5WGjko2J7OYYYdRHJ8y/k1dromorf6Pb3i43uuH9mHB/WuL16Mx6rrVjkbVsY92R0ZeRT/h1fFkmsmbggSoP0P9K8nM6fMuZdD08uqcr5e52rpvbezc1znxHJ/4Qu/GeMx/+hitxpcdDWB8Q33+Cb3/AHo//QxXix3PWex3nwkI/wCFZaHz/wAsX/8ARj104wX6VyHwkbPw50VSePKf/wBGPXWx5xTluWti1bAecuVyq8mrAJNuQDnc27H49qrWxHycjLZyD2Hb9ang27doABUkPzz1r6bCQ9nQij57FS56zYy3cqx3nYm/aGHv1pWULdx4J3JuAwOzD/8AVVCW8eW3LKpDCRvlPTrVhpBHcAFjGGBYE/eYDv8ASupHLI5DxJdyahqcVocrDFjcN3Uniu18PW/2ayUADhBnArhba2kn1lGTKqxLjd04PU/nXpdqgitlVm5xyPXPeqnskZ0922TLjPAGTwPX61T1WcInlLzzzmp3dlVnAGccDNZN2ZG+dwPnJOB6Cs+tjbpcfbOTICSCMHrV0v5cA3k8HtyetZlvmIqhCbmPTrwa1U3OhHqCKT0HHUIslDheT0xTCkgYbhnP5dKeqHklgMcLg08BBGCMhcck1LKRDJcRw+WDwcYyRXkPjGUarrqzXYdoLWN8IB1Pmnj8cCux8Uao+7y4W3YYk5PIAOP61lm332vn7V8xUY/cDHJkOOfpWkY6GUp3Zv8Ah3fDp+jxBWC+UGcdgSOOlWLO38vT7Z052gjgZ6sRUekbxp+mq8oQiMCRmXnp2qfR5N1jH87MqM4JIxyHYAUhrVEWpyRhG2AbFyCPw/8A11mYGCwVgD0JFP19pY1iQuVV5C2cdB/+qhpUaOU/KG5A9+BVozluV1O236rnIVuccYp+nTM1wGbKhiCQe5602JHMDFWHUD16Ac02JsKgY7n3Z2ntgf8A16ZBe1jy5bBog2WZCBweK830+e4gknhdiXThQfavQ2QyYwx4GGyRg1yHiaxSK+eeIgsxVTj6U46CmZvhRJYvEE93IeS2c44NekCTz4Cc8kY2469a87tLjyFMnrnJ/wBrpXb+Hbky2oOcheMAfWnbQIy1POfjDLJHfaRaNjaG3Y7dOK39KtmnWzUMpWFN7gHpgZPP41z3xsG7xDomP4g2cfUV0HhGdTZ3c7AkKoXcfQA//WrKm7zl8vyNqitCL9fzOCvboXPifX5FbKEGME/Ssvw1dmx1CGcsQEk2t/ung03TWa71m6VW+WW4dm9xniqMjBZpkGceeR+HNcNS0469bndTXJLTpY9aaRTkA1z/AMQGI8IXi54LR/8AoYq7otwbjSbeQ/eCbWJ9RxWZ4/cnwpcj/bj/APQhXgcrjKz6HtX5o3R33wobHw20bHXy3/8ARj106yMWGciuW+FbgfDfRsdfLk/9GPXUQPucHHeiMeaaj3Kb5YXJLO5d9TnHylIdqL6Zxzmr7SBircgsuDx1rn9Cuc3N6jsrBpMtt5wM1rtL0wvJwAOxHqK+tcbOyPmYyurmTp8xM99alsmN2cKO5xkH+lWo7mC7ggvVaV2eNt25OFGOmfXPYVgXV0LTxvHEvyLdqB6Dpj+dR+BdQzd3ek38nlSQ3MiFWPQN0IHp7+9WzJPobvhS2a71H7ZPv8mMbV57Z5/WuovbkWcfnSsEH8IJrO1a90/QdI855UjjRSxx3PauV0i+1HxVdpdE+VZLIdmc/MB3qZS7DjGx16Xc93IV3MFIHPt7elVNXk2SQW6noSSeuPrV+3iW2CqpBz3weeKy9SMslzuVAeSBSSsVJ3Rds9skgZOSTya0NyKNucnjj0qppyKig8qCDzip3ceYSWIXGPc1LKjsTwON33uAxxge1VdTn2wsF3b8HkmlWVA424PzZ5OazNZuDskc4GG4AHrSS1G3ocMZTJq9xFIMruL/AFG7/wCvW+IPIs49rqgMIHIPPOa5WaYR+IJHdseYdoAGeM12F2zpaA4BXyVOS3t6VszniWNNkMttZSZbABxuPXB4FWtDlf8AssFmGfNlb6/vGqro7ukFlHawE7VG9nxjd6VY0fnRIG3rudcnn1Yn+tQ9zSOxQ8QS+Y8UCDc+MDHUfnVZ3CNeDcw27uuOuBg1ZeNZdSPTCDn5ajj+cXAPG9vzOapEMWFh9lAUN82Mn61mFmjuCDuwmMYPXOK0reUtpCyIzHoR6YzWVO4VnYOM46+wA/XrVIhmhAcnYqsCSflz7dKp6hFuYhuenB5PQdKfZzCObB+6ozxTtRlRIxKy7s5Y54yMdKaE9jlNTt9ivGB8hOf901f8G6oYZPs1wcgj5cnof8muV1fWHW/mTBUB8Ac9fX+f5VDFqsLnzDMEkV8g5waXMrjUHa5d+MbY1XSpzwFdujZ6/wD6quwXw0/4f3d3vIeXcik9WJHauY+JOrw6ha6aI2L3Ct84HOOwpddut+gSWS/NFp8ADMOglfr+Paud1FGc7f1odSpuUIX/AK1MbwON16zt8xwWrPumIu3UHkzk/rWx4LXy7eebnIjPP4Vh8yaifd+PzrjaapwR2J3qzfY73w7IVtZYS3IcOPoR/wDWqr46fPhmdc5/eR/+hU/TlMMiMQQJYv1B/wDr1S8aPnw/MP8Apon868zGQ5a7O7CT5qKPTfhOP+LdaO3fZJx/21euphJMwwBz1rgfBvijwto/hHS9Ln8QWYnggBlALHDMSxGQO27H4VqxeOvCSyg/8JBZYwc53Dsfaow0U68b9zbENqi7diTw7Mra3ew5whJAPoc9f0rqY52SMo6bkBO045FeWeHPF2gweJHuJ9WgihZyQ7FsY/AV17+OvBxDK3iSyZTyvLcf+O19NOtTv8S+8+cpUqlvhf3EHxEiEYstRhGXjbqeCBXOTTs/ifTtWtpCxvmSGYAdef5g4Naev+LfCV7pUkS69ZSMGJVctzn04ridO1/TIr2JH1KBYo5RMjFjhSOCOnp/Kl7anb4l94OjU5vhZ116brxX4vNi8hXTrQ/MoPDEV6nYw29rZpHbRBEUbQAMYrzDwt4h8H6ZDIJPElg0srlnYlh+GcV08fj/AMG7AG8SafgYA+Zv8KlTppX5lf1KcKjduV/cdhK4KYfgZxjOKypFAbf5eXdj90dBnH8qxx498Fls/wDCT6eQ3Xc7f4Un/CceCfMjP/CUacMdWEh/wo9rTv8AEvvH7Ko+j+46pGxGFzxjA4608kBsbgT68Vza+PfA+U/4qjTQP+uhyP0pH8feCV3MvijTWYnOPMb/AAo9pDuhqnPszcklAmWIN0BGawtakG1+Tj2+lZ58c+DzMGPiLTyP+uh/wrL1Dxf4Uk3hdfsGGD/Gf8KaqQ/mX3kyp1P5X9xk6oQ19BIFwFYMSBz9PyrupLE6sllpFo4jur+SKBZpDhI+CSxx6LmvL9e8TaM8KLaajaOxZskN09K6dvGHhk21mYvEFnHcRGJldZipRlHXOPWlKpBpqMlcmFOaesXY9Hu9In8P3UNlLdLdDcSkkaEAgMVxjJ6EY681m6Igj0O03rk+SAQcjHWsW18e+GpHjub7xXZ3NyzZeW4uC7YGcL04UZOAKTR/G/hBdJt0m8S6cjiEB1ZznOOe1RTmlFKck2bTg3JuEWkaAO0SyYwZHPAPaq5ZlhY5G04x9eef1rMbxl4R3D/ioNPIGcfvP/rVUl8ZeFwPLXW7Js87vN4GDnHStlVp/wAy+8wdKp/K/uOiml22BJUfJuUgHHQ1hX7FxuXeu4AnjHGexqC58ZeGHtZIxrdgzSA4BkPU8nPFZtz4s8OpbrEmtWb4bHDnO0D6eppqrT/mX3kulU/lf3HT6a6vGWKIWaPAI6+lZOr3cyWbBjjaSuSAcYNUdP8AFfhyG2iDazZB9rb8ORj26Vg3XifSJknaTUbYsz/KoboPyp+1p/zL7yfZVH9l/cZl15Ul/MxjUkck5ORxz3rPmeA6VIWhUMASpGQRzUU+qWRNy63URL524NRXd/YHT3iS5hJ24wDyelc0qsLOzR1wpTurp9DPnlTzbab0bzD+ArV1mU23g63tSP8ASb+czSHuQPX8TXP2zxS3cMcsyJFuG5ieAM5rS1G9tL7X/MM6JaQARxZPUDv+NcMaialrvp/mdsqbUo6ba/5G/pkQtPD8oQEyNH8x7L+NcxpQ36gpb+9k102qanpA0Jore+t2fGPLVuSa5vRZ7RLsvPOiKe5NdFSUOaKutDCnGfLNtPU7OclJbM7iQQyjnpkH/Csvxi2dEk/30/nVnVNW0s21n5OoWzsko3BTyBWZ4gvrC70qaGG8hZ+GUbuuDnFcGYuLrJx7HXgFJUmmran/2Q==" alt="Avatar du tuteur">
+    </div>
+    <div id="avatarSoundwave"><span></span><span></span><span></span></div>
+  </div>
+  <div>
+    <div id="avatarName">Ton tuteur</div>
+    <div id="avatarStatus">à l'écoute</div>
+    <select id="avatarGenderSelect" aria-label="Choisir le tuteur">
+      <option value="male">👨 Tuteur (homme)</option>
+      <option value="female">👩 Tutrice (femme)</option>
+    </select>
+  </div>
+</div>
+
+<main id="chatWindow">
+  <div class="empty-state">
+    <strong>Bienvenue sur AngloShift.</strong><br>
+    Choisis un scénario ci-dessus, puis écris un premier message en anglais (même avec des fautes — c'est le but).
+    Le tuteur va te répondre, corriger tes erreurs en français si besoin, et continuer la mise en situation.
+  </div>
+</main>
+
+<form id="composer">
+  <textarea id="userInput" rows="1" placeholder="Écris ta réponse en anglais..."></textarea>
+  <button type="button" id="micBtn" title="Parler (expérimental)">🎤</button>
+  <button type="submit" id="sendBtn">Envoyer</button>
+</form>
+
+<!-- Settings modal -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <h2>Clé API Groq</h2>
+    <p>
+      AngloShift utilise l'API Groq (gratuite, très rapide) pour faire fonctionner le tuteur IA.
+      Crée un compte sur <a href="https://console.groq.com" target="_blank">console.groq.com</a>,
+      génère une clé API, et colle-la ici. Elle reste seulement dans ton navigateur (localStorage) —
+      elle n'est jamais envoyée ailleurs qu'à l'API Groq elle-même.
+    </p>
+    <label>Clé API</label>
+    <input type="password" id="apiKeyInput" placeholder="gsk_...">
+    <div class="modal-actions">
+      <button class="secondary" id="cancelSettings">Annuler</button>
+      <button class="primary" id="saveSettings">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Progress modal -->
+<div class="modal-backdrop" id="progressModal">
+  <div class="modal" style="max-width: 560px;">
+    <h2>📊 Mes progrès</h2>
+    <p id="progressSummary" style="margin-bottom: 4px;"></p>
+    <div id="progressList" style="max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 14px; font-size: 0.85rem;"></div>
+    <div class="modal-actions">
+      <button class="secondary" id="resetProgress">Réinitialiser</button>
+      <button class="primary" id="closeProgress">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// AngloShift — prototype fonctionnel
+// Tuteur IA d'anglais de travail pour francophones, via Groq API
+// ============================================================
+
+const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = "llama-3.3-70b-versatile"; // vérifie sur console.groq.com/docs/models si un modèle plus récent est recommandé
+
+const SCENARIOS = {
+  interview: {
+    label: "Entrevue d'embauche (usine)",
+    systemPrompt: `You are an English-speaking HR interviewer at a New Brunswick manufacturing plant (like an Irving facility), conducting a job interview in English with a French-Canadian candidate for a general labourer position. Ask realistic interview questions one at a time (experience, availability, safety attitude, teamwork). Keep your English simple and clear (the candidate is intermediate level). After the candidate responds, gently point out any English mistakes — explain the correction briefly IN FRENCH in brackets like this: [Correction: ...], then continue the interview naturally. Stay in character as the interviewer.`,
+    starter: "Good morning! Thanks for coming in today. Let's start — can you tell me a bit about your work experience? [FR: Bonjour ! Merci d'être venu aujourd'hui. Commençons — pouvez-vous me parler un peu de votre expérience de travail ?]"
+  },
+  safety: {
+    label: "Consignes de sécurité en usine",
+    systemPrompt: `You are a safety supervisor at a manufacturing plant giving a new francophone worker a safety orientation in English (PPE, hazards, emergency procedures, WHMIS basics). Speak in short, clear sentences, one instruction at a time, and check understanding by asking the worker to confirm or repeat back. Correct their English mistakes gently, with the correction explained IN FRENCH in brackets like [Correction: ...]. Use realistic factory safety vocabulary (hard hat, steel-toe boots, hearing protection, lockout-tagout, forklift, emergency exit).`,
+    starter: "Hi, welcome to the plant! Before you start, I need to walk you through some safety basics. First — do you know what PPE means? [FR: Salut, bienvenue à l'usine ! Avant de commencer, je dois te montrer les bases de la sécurité. D'abord — sais-tu ce que veut dire ÉPI (équipement de protection individuelle) ?]"
+  },
+  coworker: {
+    label: "Conversation avec un collègue",
+    systemPrompt: `You are a friendly English-speaking coworker chatting casually with a new francophone colleague during a break at a factory in Saint John, New Brunswick. Keep the tone relaxed and natural (small talk, weekend plans, local life, hockey, weather). Correct English mistakes gently in brackets like [Correction: ...] in French, then continue the casual conversation.`,
+    starter: "Hey! You're the new guy from Quebec, right? How are you settling in so far? [FR: Hé ! T'es le nouveau du Québec, right ? Comment tu t'adaptes jusqu'à présent ?]"
+  },
+  supervisor: {
+    label: "Parler à un contremaître / superviseur",
+    systemPrompt: `You are a shift supervisor at a manufacturing plant giving work instructions and feedback in English to a francophone worker. Give realistic short instructions and ask follow-up questions about task status, scheduling, or a problem on the line. Correct English mistakes gently in brackets like [Correction: ...] in French, then continue the conversation naturally.`,
+    starter: "Hey, do you have a minute? I need to go over tomorrow's schedule with you. [FR: Hé, as-tu une minute ? Je dois revoir l'horaire de demain avec toi.]"
+  },
+  free: {
+    label: "Conversation libre",
+    systemPrompt: `You are a friendly, patient English conversation partner helping a French-Canadian adult learner practice everyday English. Talk about any topic they bring up. Correct their English mistakes gently, explaining the correction IN FRENCH in brackets like [Correction: ...], then keep the conversation going naturally.`,
+    starter: "Hi there! What would you like to talk about today? [FR: Salut ! De quoi aimerais-tu parler aujourd'hui ?]"
+  },
+  emergency911: {
+    label: "Appeler le 911 (urgence)",
+    systemPrompt: `You are a 911 emergency dispatcher in New Brunswick, Canada, speaking English with a French-Canadian caller practicing for a realistic emergency call (simulate a minor situation, e.g. a small kitchen fire, a work injury, or a car accident with no serious harm — never anything graphic or distressing). Ask the standard dispatcher questions one at a time: nature of emergency, exact location/address, is anyone hurt, stay on the line instructions. Keep sentences short and clear, as a real dispatcher would. Correct the caller's English mistakes gently, with the correction explained IN FRENCH in brackets like [Correction: ...], then continue the call naturally.`,
+    starter: "911, what's your emergency? [FR: 911, quelle est votre urgence ?]"
+  },
+  medicalAppointment: {
+    label: "Rendez-vous médical par téléphone",
+    systemPrompt: `You are a receptionist at a walk-in clinic or family doctor's office in New Brunswick, speaking English on the phone with a French-Canadian caller who wants to book a medical appointment. Ask realistic questions one at a time: reason for the visit (general, non-sensitive), health card number format, preferred date/time, whether it's their first visit. Correct the caller's English mistakes gently, with the correction explained IN FRENCH in brackets like [Correction: ...], then continue the call naturally.`,
+    starter: "Good afternoon, Fundy Family Clinic, how can I help you? [FR: Bon après-midi, Clinique familiale Fundy, comment puis-je vous aider ?]"
+  },
+  landlord: {
+    label: "Discussion avec un propriétaire (logement)",
+    systemPrompt: `You are a landlord in Saint John, New Brunswick, speaking English with a French-Canadian prospective tenant about renting an apartment (a 1-bedroom or bachelor unit). Discuss realistic topics one at a time: rent amount, utilities included or not, lease length, move-in date, references, pets/smoking policy. Correct the tenant's English mistakes gently, with the correction explained IN FRENCH in brackets like [Correction: ...], then continue the conversation naturally.`,
+    starter: "Hi, thanks for calling about the apartment! Are you still looking for a place, or have you already found something? [FR: Bonjour, merci d'appeler au sujet de l'appartement ! Êtes-vous toujours à la recherche d'un logement, ou avez-vous déjà trouvé quelque chose ?]"
+  }
+};
+
+let currentScenario = "interview";
+let history = []; // {role: "system"|"user"|"assistant", content: "..."}
+let isSending = false;
+let examMode = false;
+let examTimerInterval = null;
+let examSecondsLeft = 0;
+let examActive = false; // true once an exam has started, until evaluated
+
+const TRANSLATION_INSTRUCTIONS = `
+
+IMPORTANT — TRANSLATION: At the very end of EVERY one of your messages, without exception, add a French translation of your own English message like this, on its own line: [FR: traduction complète en français ici]. This is mandatory for every single message you send, even short ones — the learner needs it to check their understanding. If you are also giving a mistake correction, put [Correction: ...] first, then [FR: ...] after it.
+
+IMPORTANT — SPOKEN PRONUNCIATION OF CORRECTIONS: Whenever you give a [Correction: ...], you must ALSO naturally say the corrected English phrase as a normal part of your English reply (outside the brackets), not only inside the bracket. Example: if the learner said "I work here since two years" and you correct that to "I have been working here for two years", your visible English reply should actually contain the sentence "I have been working here for two years" somewhere (e.g. "Great, so you have been working here for two years — what does a typical day look like?"). This matters because the app reads your English reply out loud with real English pronunciation, and repeating the corrected phrase is how the learner hears the correct pronunciation.`;
+
+const EXAM_DURATION_SECONDS = 8 * 60;
+const EXAM_INSTRUCTIONS = `
+
+IMPORTANT — MOCK EXAM MODE: Conduct this as a complete, structured mock interview of about 6 realistic questions (experience, availability, safety attitude, teamwork, why this job, a question about a past challenge), asking ONE question at a time and waiting for the answer before moving to the next. Do not end the interview yourself — the candidate or a timer will end it. Keep count of how many questions you've asked internally.`;
+
+const chatWindow = document.getElementById("chatWindow");
+const composer = document.getElementById("composer");
+const userInput = document.getElementById("userInput");
+const sendBtn = document.getElementById("sendBtn");
+const scenarioSelect = document.getElementById("scenario");
+const ttsToggle = document.getElementById("ttsToggle");
+const clearBtn = document.getElementById("clearBtn");
+const micBtn = document.getElementById("micBtn");
+
+const settingsModal = document.getElementById("settingsModal");
+const settingsBtn = document.getElementById("settingsBtn");
+const apiKeyInput = document.getElementById("apiKeyInput");
+const saveSettings = document.getElementById("saveSettings");
+const cancelSettings = document.getElementById("cancelSettings");
+
+function getApiKey() {
+  try { return localStorage.getItem("angloshift_groq_key") || ""; }
+  catch (e) { return ""; }
+}
+function setApiKey(key) {
+  try { localStorage.setItem("angloshift_groq_key", key); }
+  catch (e) { /* ignore if storage unavailable */ }
+}
+
+settingsBtn.addEventListener("click", () => {
+  apiKeyInput.value = getApiKey();
+  settingsModal.classList.add("open");
+});
+cancelSettings.addEventListener("click", () => settingsModal.classList.remove("open"));
+saveSettings.addEventListener("click", () => {
+  setApiKey(apiKeyInput.value.trim());
+  settingsModal.classList.remove("open");
+});
+
+// ------------------------------------------------------------
+// Suivi de progression — extrait les [Correction: ...] des réponses
+// du tuteur et les conserve dans localStorage, d'une session à l'autre.
+// ------------------------------------------------------------
+const PROGRESS_KEY = "angloshift_progress_log";
+
+function getProgressLog() {
+  try { return JSON.parse(localStorage.getItem(PROGRESS_KEY) || "[]"); }
+  catch (e) { return []; }
+}
+function saveProgressLog(log) {
+  try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(log)); }
+  catch (e) { /* ignore if storage unavailable */ }
+}
+function logCorrections(aiText, scenarioKey) {
+  const matches = [...aiText.matchAll(/\[Correction:(.*?)\]/gs)].map(m => m[1].trim());
+  if (matches.length === 0) return;
+  const log = getProgressLog();
+  const now = new Date().toISOString();
+  matches.forEach(text => {
+    log.push({ date: now, scenario: SCENARIOS[scenarioKey] ? SCENARIOS[scenarioKey].label : scenarioKey, text });
+  });
+  saveProgressLog(log);
+}
+
+const progressBtn = document.getElementById("progressBtn");
+const progressModal = document.getElementById("progressModal");
+const progressSummary = document.getElementById("progressSummary");
+const progressList = document.getElementById("progressList");
+const resetProgress = document.getElementById("resetProgress");
+const closeProgress = document.getElementById("closeProgress");
+
+function renderProgress() {
+  const log = getProgressLog();
+  if (log.length === 0) {
+    progressSummary.textContent = "Aucune correction enregistrée pour l'instant — pratique un peu, puis reviens voir ici ce qui revient le plus souvent.";
+    progressList.innerHTML = "";
+    return;
+  }
+  progressSummary.textContent = log.length + " correction(s) enregistrée(s) depuis le début. Les plus récentes en premier :";
+  progressList.innerHTML = "";
+  log.slice().reverse().slice(0, 100).forEach(entry => {
+    const row = document.createElement("div");
+    row.style.padding = "8px 0";
+    row.style.borderBottom = "1px solid var(--border)";
+    const dateStr = new Date(entry.date).toLocaleDateString("fr-CA", { day: "numeric", month: "short" });
+    row.innerHTML = "<strong style='color:var(--navy)'>" + entry.scenario + "</strong>" +
+      " <span style='color:var(--grey)'>· " + dateStr + "</span><br>" + entry.text;
+    progressList.appendChild(row);
+  });
+}
+
+progressBtn.addEventListener("click", () => {
+  renderProgress();
+  progressModal.classList.add("open");
+});
+closeProgress.addEventListener("click", () => progressModal.classList.remove("open"));
+resetProgress.addEventListener("click", () => {
+  if (confirm("Effacer tout l'historique de tes corrections enregistrées ?")) {
+    saveProgressLog([]);
+    renderProgress();
+  }
+});
+
+function addMessage(role, text) {
+  const div = document.createElement("div");
+  div.className = "msg " + (role === "user" ? "user" : role === "system-note" ? "system-note" : "ai");
+
+  if (role === "ai") {
+    // On sépare le message en 3 morceaux : le texte anglais principal,
+    // la correction (s'il y en a une) et la traduction française
+    // (toujours demandée à l'IA) — chacun rendu différemment pour que
+    // ce soit clair d'un coup d'oeil.
+    const corrections = [...text.matchAll(/\[Correction:(.*?)\]/gs)].map(m => m[1].trim());
+    const translations = [...text.matchAll(/\[FR:(.*?)\]/gs)].map(m => m[1].trim());
+    const mainText = text.replace(/\[Correction:.*?\]/gs, "").replace(/\[FR:.*?\]/gs, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+
+    const mainSpan = document.createElement("div");
+    mainSpan.className = "msg-main";
+    mainSpan.textContent = mainText;
+    div.appendChild(mainSpan);
+
+    corrections.forEach(c => {
+      const note = document.createElement("div");
+      note.className = "correction-note";
+      note.textContent = "✏️ Correction : " + c;
+      div.appendChild(note);
+    });
+
+    if (translations.length > 0) {
+      const trWrap = document.createElement("div");
+      trWrap.className = "translation-wrap";
+      const trBtn = document.createElement("button");
+      trBtn.type = "button";
+      trBtn.className = "translation-toggle";
+      trBtn.textContent = "🇫🇷 Voir la traduction";
+      const trText = document.createElement("div");
+      trText.className = "translation-text";
+      trText.textContent = translations.join(" ");
+      trText.style.display = "none";
+      trBtn.addEventListener("click", () => {
+        const showing = trText.style.display !== "none";
+        trText.style.display = showing ? "none" : "block";
+        trBtn.textContent = showing ? "🇫🇷 Voir la traduction" : "🇫🇷 Cacher la traduction";
+      });
+      trWrap.appendChild(trBtn);
+      trWrap.appendChild(trText);
+      div.appendChild(trWrap);
+    }
+
+    const speakBtn = document.createElement("button");
+    speakBtn.className = "speak-btn";
+    speakBtn.textContent = "🔊 Réécouter";
+    speakBtn.addEventListener("click", () => speak(text));
+    div.appendChild(speakBtn);
+  } else {
+    div.textContent = text;
+  }
+
+  chatWindow.appendChild(div);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+  return div;
+}
+
+function clearEmptyState() {
+  const empty = chatWindow.querySelector(".empty-state");
+  if (empty) empty.remove();
+}
+
+// ------------------------------------------------------------
+// Sélection de la voix anglaise — le piège classique du Web Speech API :
+// utterance.lang seul ne suffit pas. Si le navigateur/l'OS n'a pas de
+// voix anglaise chargée, il retombe silencieusement sur la voix par
+// défaut du système (souvent une voix française qui "lit" l'anglais
+// avec un accent français). Il faut donc explicitement choisir une
+// voix dont voice.lang commence par "en".
+// ------------------------------------------------------------
+const voiceSelect = document.getElementById("voiceSelect");
+const voiceWarning = document.getElementById("voiceWarning");
+let englishVoices = [];
+
+function loadVoices() {
+  const allVoices = ("speechSynthesis" in window) ? window.speechSynthesis.getVoices() : [];
+  englishVoices = allVoices.filter(v => v.lang && v.lang.toLowerCase().startsWith("en"));
+
+  voiceSelect.innerHTML = "";
+
+  if (englishVoices.length === 0) {
+    voiceSelect.innerHTML = '<option value="">Aucune voix anglaise trouvée</option>';
+    voiceSelect.disabled = true;
+    voiceWarning.style.display = "block";
+    voiceWarning.textContent =
+      "⚠ Ton navigateur n'a trouvé aucune voix anglaise installée — c'est pour ça que tu entends un accent français essayer de lire l'anglais. " +
+      "Essaie Google Chrome (il inclut des voix anglaises même sans pack de langue), ou installe une voix anglaise dans les paramètres " +
+      "d'accessibilité / synthèse vocale de ton système d'exploitation, puis recharge cette page.";
+    return;
+  }
+
+  voiceWarning.style.display = "none";
+  // Trier pour mettre les voix "en-CA" puis "en-US" en premier (plus pertinentes ici)
+  englishVoices.sort((a, b) => {
+    const score = v => v.lang.toLowerCase() === "en-ca" ? 0 : v.lang.toLowerCase() === "en-us" ? 1 : 2;
+    return score(a) - score(b);
+  });
+
+  englishVoices.forEach((v, i) => {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = v.name + " (" + v.lang + ")";
+    voiceSelect.appendChild(opt);
+  });
+  voiceSelect.disabled = false;
+
+  // Restaurer le choix précédent s'il existe encore dans la liste
+  const savedName = localStorage.getItem("angloshift_voice_name");
+  const savedIndex = englishVoices.findIndex(v => v.name === savedName);
+  if (savedIndex >= 0) voiceSelect.value = savedIndex;
+}
+
+voiceSelect.addEventListener("change", () => {
+  const v = englishVoices[voiceSelect.value];
+  if (v) { try { localStorage.setItem("angloshift_voice_name", v.name); } catch (e) {} }
+});
+
+if ("speechSynthesis" in window) {
+  loadVoices();
+  // Chrome charge la liste des voix de façon asynchrone
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+// ------------------------------------------------------------
+// Avatar animé — photo réelle (générée par IA) fournie par
+// l'utilisateur. Un vrai lip-sync sur une photo demanderait un
+// service payant (D-ID, HeyGen) ; ici, l'effet "il parle" est
+// rendu par une pulsation douce + un halo + une petite icône
+// sonore animée, entièrement en CSS, déclenchés par la classe
+// "talking" sur #avatarBar pendant que l'audio joue.
+// ------------------------------------------------------------
+const avatarBar = document.getElementById("avatarBar");
+const avatarStatus = document.getElementById("avatarStatus");
+const avatarPhoto = document.getElementById("avatarPhoto");
+const avatarName = document.getElementById("avatarName");
+const avatarGenderSelect = document.getElementById("avatarGenderSelect");
+
+// Deux avatars possibles (photos generees par IA fournies par l'utilisateur).
+// La photo "homme" est deja dans le HTML au chargement ; on la capture ici
+// pour pouvoir revenir dessus apres avoir affiche la photo "femme".
+const AVATAR_PHOTOS = {
+  male: avatarPhoto.getAttribute("src"),
+  female: "data:image/jpeg;base64,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"
+};
+const AVATAR_LABELS = { male: "Ton tuteur", female: "Ta tutrice" };
+
+// Heuristique simple pour suggerer une voix du bon genre quand on change
+// d'avatar (les navigateurs ne donnent pas le genre des voix directement,
+// seulement leur nom).
+const FEMALE_VOICE_HINTS = ["female", "samantha", "zira", "susan", "karen", "moira", "tessa", "fiona", "serena", "victoria", "kate", "hazel", "libby", "sonia"];
+const MALE_VOICE_HINTS = ["male", "david", "mark", "daniel", "alex", "fred", "george", "ryan", "arthur", "oliver"];
+
+function applyAvatarGender(gender, { switchVoice = true } = {}) {
+  avatarPhoto.src = AVATAR_PHOTOS[gender] || AVATAR_PHOTOS.male;
+  avatarName.textContent = AVATAR_LABELS[gender] || AVATAR_LABELS.male;
+  avatarBar.classList.toggle("gender-female", gender === "female");
+  try { localStorage.setItem("angloshift_avatar_gender", gender); } catch (e) {}
+
+  if (switchVoice && englishVoices.length > 0) {
+    const hints = gender === "female" ? FEMALE_VOICE_HINTS : MALE_VOICE_HINTS;
+    const matchIndex = englishVoices.findIndex(v => hints.some(h => v.name.toLowerCase().includes(h)));
+    if (matchIndex >= 0) {
+      voiceSelect.value = matchIndex;
+      try { localStorage.setItem("angloshift_voice_name", englishVoices[matchIndex].name); } catch (e) {}
+    }
+  }
+}
+
+avatarGenderSelect.addEventListener("change", () => applyAvatarGender(avatarGenderSelect.value));
+
+// Restaurer le choix precedent (par defaut : homme)
+const savedGender = (() => { try { return localStorage.getItem("angloshift_avatar_gender"); } catch (e) { return null; } })();
+if (savedGender === "female") {
+  avatarGenderSelect.value = "female";
+  applyAvatarGender("female", { switchVoice: false });
+}
+
+function speak(text) {
+  if (!ttsToggle.checked) return;
+  if (!("speechSynthesis" in window)) return;
+  if (englishVoices.length === 0) return; // évite de lire avec une voix française par défaut
+
+  // Strip the bracketed French corrections before reading aloud in English
+  const cleanText = text.replace(/\[Correction:.*?\]/gs, "").replace(/\[FR:.*?\]/gs, "").replace(/[ \t]{2,}/g, " ").trim();
+  const utterance = new SpeechSynthesisUtterance(cleanText);
+
+  const chosen = englishVoices[voiceSelect.value] || englishVoices[0];
+  utterance.voice = chosen;
+  utterance.lang = chosen.lang;
+  utterance.rate = 0.95;
+
+  utterance.onstart = () => {
+    avatarBar.classList.add("talking");
+    avatarStatus.textContent = "en train de parler";
+  };
+  utterance.onend = () => {
+    avatarBar.classList.remove("talking");
+    avatarStatus.textContent = "à l'écoute";
+  };
+  utterance.onerror = () => {
+    avatarBar.classList.remove("talking");
+    avatarStatus.textContent = "à l'écoute";
+  };
+
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+}
+
+const examTimer = document.getElementById("examTimer");
+const endExamBtn = document.getElementById("endExamBtn");
+const examToggle = document.getElementById("examToggle");
+
+function resetConversation(scenarioKey) {
+  currentScenario = scenarioKey;
+  stopExamTimer();
+  examActive = false;
+  userInput.disabled = false;
+  sendBtn.disabled = false;
+
+  const scenario = SCENARIOS[scenarioKey];
+  const isExam = examToggle.checked && scenarioKey === "interview";
+  const systemPrompt = scenario.systemPrompt + TRANSLATION_INSTRUCTIONS + (isExam ? EXAM_INSTRUCTIONS : "");
+  history = [{ role: "system", content: systemPrompt }];
+  chatWindow.innerHTML = "";
+  const note = document.createElement("div");
+  note.className = "msg system-note";
+  note.textContent = "Scénario : " + scenario.label + (isExam ? " — Mode examen blanc" : "");
+  chatWindow.appendChild(note);
+
+  history.push({ role: "assistant", content: scenario.starter });
+  addMessage("ai", scenario.starter);
+  speak(scenario.starter);
+
+  if (isExam) {
+    examActive = true;
+    startExamTimer();
+    endExamBtn.style.display = "inline-block";
+  } else {
+    endExamBtn.style.display = "none";
+    examTimer.style.display = "none";
+  }
+}
+
+scenarioSelect.addEventListener("change", (e) => resetConversation(e.target.value));
+clearBtn.addEventListener("click", () => resetConversation(currentScenario));
+examToggle.addEventListener("change", () => {
+  if (examToggle.checked && scenarioSelect.value !== "interview") {
+    scenarioSelect.value = "interview";
+  }
+  resetConversation(scenarioSelect.value);
+});
+
+// ------------------------------------------------------------
+// Minuteur du mode examen blanc
+// ------------------------------------------------------------
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m + ":" + (s < 10 ? "0" : "") + s;
+}
+
+function startExamTimer() {
+  examSecondsLeft = EXAM_DURATION_SECONDS;
+  examTimer.style.display = "inline";
+  examTimer.textContent = "⏱ " + formatTime(examSecondsLeft);
+  examTimerInterval = setInterval(() => {
+    examSecondsLeft--;
+    examTimer.textContent = "⏱ " + formatTime(examSecondsLeft);
+    if (examSecondsLeft <= 0) {
+      stopExamTimer();
+      endExam(true);
+    }
+  }, 1000);
+}
+
+function stopExamTimer() {
+  if (examTimerInterval) clearInterval(examTimerInterval);
+  examTimerInterval = null;
+}
+
+async function endExam(timedOut) {
+  if (!examActive) return;
+  examActive = false;
+  stopExamTimer();
+  endExamBtn.style.display = "none";
+  examTimer.style.display = "none";
+  userInput.disabled = true;
+  sendBtn.disabled = true;
+
+  clearEmptyState();
+  addMessage("system-note", timedOut
+    ? "⏱ Temps écoulé — voici ton évaluation :"
+    : "Entrevue terminée — voici ton évaluation :");
+
+  history.push({
+    role: "user",
+    content: "[END OF MOCK INTERVIEW] Please now give me a short performance evaluation IN FRENCH: 2-3 strengths, 2-3 things to improve in my English (grammar, vocabulary, confidence), and one encouraging closing sentence. Be honest but supportive."
+  });
+
+  const thinking = addMessage("system-note", "Préparation de ton évaluation...");
+  try {
+    const reply = await callGroq();
+    thinking.remove();
+    if (reply) {
+      history.push({ role: "assistant", content: reply });
+      addMessage("ai", reply);
+    }
+  } catch (err) {
+    thinking.remove();
+    addMessage("system-note", "❌ " + err.message);
+  } finally {
+    userInput.disabled = false;
+    sendBtn.disabled = false;
+  }
+}
+
+endExamBtn.addEventListener("click", () => endExam(false));
+
+async function callGroq() {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    addMessage("system-note", "⚠ Ajoute d'abord ta clé API Groq (bouton ⚙ en haut à droite).");
+    return null;
+  }
+  const response = await fetch(GROQ_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + apiKey
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: history,
+      temperature: 0.7,
+      max_tokens: 300
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error("Groq API error (" + response.status + "): " + errText);
+  }
+  const data = await response.json();
+  return data.choices[0].message.content;
+}
+
+composer.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = userInput.value.trim();
+  if (!text || isSending) return;
+
+  clearEmptyState();
+  addMessage("user", text);
+  history.push({ role: "user", content: text });
+  userInput.value = "";
+  isSending = true;
+  sendBtn.disabled = true;
+
+  const thinking = addMessage("system-note", "Le tuteur écrit...");
+
+  try {
+    const reply = await callGroq();
+    thinking.remove();
+    if (reply) {
+      history.push({ role: "assistant", content: reply });
+      addMessage("ai", reply);
+      speak(reply);
+      logCorrections(reply, currentScenario);
+    }
+  } catch (err) {
+    thinking.remove();
+    addMessage("system-note", "❌ " + err.message);
+    console.error(err);
+  } finally {
+    isSending = false;
+    sendBtn.disabled = false;
+    userInput.focus();
+  }
+});
+
+// Auto-resize textarea
+userInput.addEventListener("input", () => {
+  userInput.style.height = "auto";
+  userInput.style.height = Math.min(userInput.scrollHeight, 120) + "px";
+});
+userInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    composer.requestSubmit();
+  }
+});
+
+// ------------------------------------------------------------
+// Reconnaissance vocale (EXPÉRIMENTAL — désactivée par défaut sur mobile)
+// Attention : instable sur plusieurs navigateurs mobiles. Garder en option,
+// jamais comme seule méthode de saisie (leçon apprise avec MyFirstApp).
+// ------------------------------------------------------------
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognizing = false;
+let recognizer = null;
+
+if (SpeechRecognition) {
+  recognizer = new SpeechRecognition();
+  recognizer.lang = "en-US";
+  recognizer.interimResults = false;
+  recognizer.maxAlternatives = 1;
+
+  recognizer.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    userInput.value = transcript;
+  };
+  recognizer.onend = () => {
+    recognizing = false;
+    micBtn.classList.remove("recording");
+  };
+  recognizer.onerror = () => {
+    recognizing = false;
+    micBtn.classList.remove("recording");
+    addMessage("system-note", "⚠ La reconnaissance vocale n'a pas fonctionné (courant sur mobile). Écris ta réponse à la place.");
+  };
+
+  micBtn.addEventListener("click", () => {
+    if (recognizing) {
+      recognizer.stop();
+      return;
+    }
+    recognizing = true;
+    micBtn.classList.add("recording");
+    recognizer.start();
+  });
+} else {
+  micBtn.disabled = true;
+  micBtn.title = "Reconnaissance vocale non supportée par ce navigateur";
+}
+
+// Init
+resetConversation(currentScenario);
+</script>
+
+</body>
+</html>
