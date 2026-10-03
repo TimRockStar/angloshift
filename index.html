@@ -342,6 +342,26 @@
     padding: 0 30px;
   }
   .empty-state strong { color: var(--navy); }
+
+  /* Téléphone : on compacte le haut pour laisser la place à la conversation */
+  @media (max-width: 640px) {
+    body { height: 100dvh; }
+    header { padding: 8px 12px; gap: 8px; }
+    header h1 { font-size: 1rem; }
+    header .sub { display: none; }
+    button.iconbtn { padding: 6px 9px; font-size: 0.75rem; }
+    .toolbar { padding: 6px 12px; gap: 6px 8px; }
+    .toolbar label { font-size: 0.72rem; margin-left: 0 !important; }
+    .toolbar select { font-size: 0.78rem; padding: 4px 6px; max-width: 100%; }
+    #avatarBar { padding: 6px 12px; gap: 10px; }
+    #avatarPhotoWrap { width: 56px; height: 56px; }
+    #avatarPhoto { width: 56px; height: 56px; }
+    #avatarSoundwave { transform: scale(0.6); transform-origin: bottom right; }
+    #avatarName { font-size: 0.95rem; }
+    #avatarStatus { font-size: 0.75rem; margin-top: 0; }
+    #avatarGenderSelect { margin-top: 2px; font-size: 0.75rem; padding: 3px 6px; }
+    main { padding: 12px; }
+  }
 </style>
 </head>
 <body>
