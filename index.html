@@ -354,7 +354,6 @@
   <div class="header-actions">
     <button class="iconbtn" id="progressBtn">📊 Mes progrès</button>
     <button class="iconbtn" id="clearBtn">Effacer</button>
-    <button class="iconbtn" id="settingsBtn">⚙ Clé API</button>
   </div>
 </header>
 
@@ -419,25 +418,6 @@
   <button type="submit" id="sendBtn">Envoyer</button>
 </form>
 
-<!-- Settings modal -->
-<div class="modal-backdrop" id="settingsModal">
-  <div class="modal">
-    <h2>Clé API Groq</h2>
-    <p>
-      AngloShift utilise l'API Groq (gratuite, très rapide) pour faire fonctionner le tuteur IA.
-      Crée un compte sur <a href="https://console.groq.com" target="_blank">console.groq.com</a>,
-      génère une clé API, et colle-la ici. Elle reste seulement dans ton navigateur (localStorage) —
-      elle n'est jamais envoyée ailleurs qu'à l'API Groq elle-même.
-    </p>
-    <label>Clé API</label>
-    <input type="password" id="apiKeyInput" placeholder="gsk_...">
-    <div class="modal-actions">
-      <button class="secondary" id="cancelSettings">Annuler</button>
-      <button class="primary" id="saveSettings">Enregistrer</button>
-    </div>
-  </div>
-</div>
-
 <!-- Progress modal -->
 <div class="modal-backdrop" id="progressModal">
   <div class="modal" style="max-width: 560px;">
@@ -457,7 +437,7 @@
 // Tuteur IA d'anglais de travail pour francophones, via Groq API
 // ============================================================
 
-const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_ENDPOINT = "https://relais-groq.smartgrocer.workers.dev"; // relais : aucune clé dans ce fichier
 const GROQ_MODEL = "llama-3.3-70b-versatile"; // vérifie sur console.groq.com/docs/models si un modèle plus récent est recommandé
 
 const SCENARIOS = {
@@ -531,30 +511,6 @@ const ttsToggle = document.getElementById("ttsToggle");
 const clearBtn = document.getElementById("clearBtn");
 const micBtn = document.getElementById("micBtn");
 
-const settingsModal = document.getElementById("settingsModal");
-const settingsBtn = document.getElementById("settingsBtn");
-const apiKeyInput = document.getElementById("apiKeyInput");
-const saveSettings = document.getElementById("saveSettings");
-const cancelSettings = document.getElementById("cancelSettings");
-
-function getApiKey() {
-  try { return localStorage.getItem("angloshift_groq_key") || ""; }
-  catch (e) { return ""; }
-}
-function setApiKey(key) {
-  try { localStorage.setItem("angloshift_groq_key", key); }
-  catch (e) { /* ignore if storage unavailable */ }
-}
-
-settingsBtn.addEventListener("click", () => {
-  apiKeyInput.value = getApiKey();
-  settingsModal.classList.add("open");
-});
-cancelSettings.addEventListener("click", () => settingsModal.classList.remove("open"));
-saveSettings.addEventListener("click", () => {
-  setApiKey(apiKeyInput.value.trim());
-  settingsModal.classList.remove("open");
-});
 
 // ------------------------------------------------------------
 // Suivi de progression — extrait les [Correction: ...] des réponses
@@ -942,16 +898,10 @@ async function endExam(timedOut) {
 endExamBtn.addEventListener("click", () => endExam(false));
 
 async function callGroq() {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    addMessage("system-note", "⚠ Ajoute d'abord ta clé API Groq (bouton ⚙ en haut à droite).");
-    return null;
-  }
   const response = await fetch(GROQ_ENDPOINT, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + apiKey
+      "Content-Type": "application/json"
     },
     body: JSON.stringify({
       model: GROQ_MODEL,
