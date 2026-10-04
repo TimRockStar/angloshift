@@ -313,6 +313,17 @@
   .niveau-choix button { text-align: left; padding: 10px 12px; background: #f3f5f8; color: var(--text); font-weight: 400; line-height: 1.3; }
   .niveau-choix button b { display: block; color: var(--navy); }
   .niveau-choix button.actif { outline: 2px solid var(--accent); background: var(--accent-light); }
+  #sessionBar { align-items: center; gap: 10px; padding: 8px 20px; background: var(--accent-light); border-bottom: 1px solid var(--border); max-width: 760px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+  #sessionTitre { font-weight: 700; color: var(--navy); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #sessionTemps { font-size: 0.78rem; color: var(--grey); font-variant-numeric: tabular-nums; }
+  #sessionEvalBtn { border: none; border-radius: 8px; padding: 7px 11px; background: var(--navy); color: #fff; font-size: 0.78rem; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  #sessionEvalBtn.pret { background: var(--accent); box-shadow: 0 0 0 3px #bfe0d6; }
+  #sessionQuitter { border: none; background: transparent; color: var(--grey); font-size: 1rem; cursor: pointer; padding: 4px 6px; }
+  .parcours-niveau { font-weight: 700; color: var(--navy); margin: 14px 0 6px; font-size: 0.9rem; }
+  .parcours-etape { display: block; width: 100%; text-align: left; margin: 0 0 6px; padding: 10px 12px; background: #f3f5f8; color: var(--text); font-weight: 400; }
+  .parcours-etape.faite { background: var(--accent-light); }
+  .parcours-etape.verrou { opacity: 0.55; cursor: not-allowed; }
+  @media (max-width: 640px) { #sessionBar { padding: 6px 12px; } }
   .modal textarea { min-height: 90px; resize: vertical; font-family: inherit; }
   .perso-ligne { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); font-size: 0.85rem; }
   .perso-ligne button { padding: 4px 10px; font-size: 0.75rem; background: #fbe4e1; color: #8f2f26; }
@@ -380,6 +391,7 @@
     <div class="sub">Pratique ton anglais de travail avec un tuteur IA — entrevues, usine, collègues</div>
   </div>
   <div class="header-actions">
+    <button class="iconbtn" id="parcoursBtn">🎓 Parcours</button>
     <button class="iconbtn" id="progressBtn">📊 Mes progrès</button>
     <button class="iconbtn" id="clearBtn">Effacer</button>
   </div>
@@ -433,6 +445,12 @@
   </div>
 </div>
 
+<div id="sessionBar" style="display:none;">
+  <div style="min-width:0;flex:1;"><div id="sessionTitre"></div><div id="sessionTemps"></div></div>
+  <button type="button" id="sessionEvalBtn">📝 Évaluation</button>
+  <button type="button" id="sessionQuitter" title="Quitter l'étape">✕</button>
+</div>
+
 <main id="chatWindow">
   <div class="empty-state">
     <strong>Bienvenue sur AngloShift.</strong><br>
@@ -446,6 +464,18 @@
   <button type="button" id="micBtn" title="Parler (expérimental)">🎤</button>
   <button type="submit" id="sendBtn">Envoyer</button>
 </form>
+
+<!-- Fenêtre : mon parcours -->
+<div class="modal-backdrop" id="parcoursModal">
+  <div class="modal" style="max-width: 520px; max-height: 88vh; overflow-y: auto;">
+    <h2>🎓 Mon parcours</h2>
+    <p id="parcoursResume"></p>
+    <div id="parcoursListe"></div>
+    <div class="modal-actions">
+      <button class="secondary" id="parcoursFermer">Fermer</button>
+    </div>
+  </div>
+</div>
 
 <!-- Fenêtre : niveau d'anglais -->
 <div class="modal-backdrop" id="niveauModal">
@@ -864,6 +894,15 @@ if (savedGender === "female") {
 // ------------------------------------------------------------
 const ADRESSE_VOIX = GROQ_ENDPOINT + "/voix";
 const VOIX_IA = { male: "homme", female: "femme" };
+// Limite par appareil : au-delà, la voix du téléphone prend la relève. Protège la facture.
+const MAX_VOIX_IA_PAR_JOUR = 80; // réponses lues par la voix d'IA, par jour et par appareil (environ 3 ou 4 sessions)
+function compteVoixIA(ajouter) {
+  const j = new Date().toDateString();
+  let c = { jour: j, n: 0 };
+  try { const v = JSON.parse(localStorage.getItem("angloshift_voix_ia") || "null"); if (v && v.jour === j) c = v; } catch (e) {}
+  if (ajouter) { c.n++; try { localStorage.setItem("angloshift_voix_ia", JSON.stringify(c)); } catch (e) {} }
+  return c.n;
+}
 let lectureNo = 0;          // sert à annuler une lecture quand une nouvelle commence
 let audioEnCours = null;
 
@@ -994,7 +1033,10 @@ async function speak(text) {
   //    (courte, donc prête rapidement) et le reste en même temps, puis on joue dans l'ordre.
   // 2) Groq prend la relève pour ce qui reste si Gemini ne répond pas (morceaux de 190 caractères).
   let reste = cleanText;
-  if (cleanText) {
+  const quotaAtteint = compteVoixIA(false) >= MAX_VOIX_IA_PAR_JOUR;
+  if (quotaAtteint) raisons.push("limite quotidienne de la voix d'IA atteinte sur cet appareil");
+  if (cleanText && !quotaAtteint) compteVoixIA(true);
+  if (cleanText && !quotaAtteint) {
     // Une seule demande par réponse : le forfait gratuit de Gemini en permet 3 par minute.
     const pieces = [cleanText];
     const demandes = pieces.map(m => chercherAudio(m, voix, "gemini"));
@@ -1012,7 +1054,7 @@ async function speak(text) {
   }
   lu = !reste;
 
-  if (reste) {
+  if (reste && !quotaAtteint) {
     try {
       const demandes = couperEnMorceaux(reste).map(m => chercherAudio(m, voix, "groq"));
       demandes.forEach(d => d.catch(() => {}));
@@ -1056,7 +1098,8 @@ function resetConversation(scenarioKey) {
 
   const scenario = SCENARIOS[scenarioKey];
   const isExam = examToggle.checked && scenarioKey === "interview";
-  const niveau = lireNiveau();
+  preparerSession(scenarioKey);
+  const niveau = scenario.niveau || lireNiveau(); // une étape du parcours impose son propre niveau
   const systemPrompt = scenarioKey === EVALUATION
     ? scenario.systemPrompt
     : scenario.systemPrompt + TRANSLATION_INSTRUCTIONS + (niveau ? NIVEAUX[niveau].consigne : "") + (isExam ? EXAM_INSTRUCTIONS : "");
@@ -1347,6 +1390,7 @@ composer.addEventListener("submit", async (e) => {
   clearEmptyState();
   addMessage("user", text);
   history.push({ role: "user", content: text });
+  if (session) { session.messages++; noterJourDePratique(); }
   userInput.value = "";
   isSending = true;
   sendBtn.disabled = true;
@@ -1360,10 +1404,12 @@ composer.addEventListener("submit", async (e) => {
       history.push({ role: "assistant", content: reply });
       if (currentScenario === EVALUATION && terminerEvaluation(reply)) {
         // le bilan est en français : il est affiché, pas lu par la voix anglaise
+      } else if (session && session.enEvaluation && terminerEtape(reply)) {
+        // idem pour le résultat d'une étape du parcours
       } else {
         addMessage("ai", reply);
         speak(reply);
-        if (currentScenario !== EVALUATION) logCorrections(reply, currentScenario);
+        if (currentScenario !== EVALUATION && !(session && session.enEvaluation)) logCorrections(reply, currentScenario);
       }
     }
   } catch (err) {
@@ -1466,6 +1512,247 @@ if (SpeechRecognition) {
 }
 
 // Init
+
+// ============================================================
+// PARCOURS — une formation par étapes d'environ 15 minutes,
+// du plus facile au plus difficile, avec une petite évaluation
+// et un certificat à la fin de chaque étape.
+// ============================================================
+const PARCOURS_CLE = "angloshift_parcours";
+const DUREE_ETAPE = 15 * 60; // secondes — un repère, rien ne coupe à 15 minutes
+const MESSAGES_MIN_AVANT_EVAL = 4;
+const PARCOURS = {
+  debutant: [
+    { id: "d1", titre: "Te présenter", but: "introduce yourself: name, where you are from, where you live, your job, your family" },
+    { id: "d2", titre: "Les chiffres, l'heure et ton horaire", but: "say and understand numbers, the time, days of the week and a work schedule (shift start and end, breaks)" },
+    { id: "d3", titre: "Parler de ton travail", but: "describe your job in simple sentences: where you work, what you do, what tools or machines you use" },
+    { id: "d4", titre: "Demander de l'aide", but: "ask for help and say you do not understand: asking someone to repeat, to speak slowly, to explain a word, to show you" },
+    { id: "d5", titre: "Les consignes simples au travail", but: "understand and answer simple workplace instructions and basic safety words (wear, stop, careful, bring, put, wait)" }
+  ],
+  intermediaire: [
+    { id: "i1", titre: "Raconter ta journée et ton expérience", but: "talk about past events: yesterday at work, a previous job, what you did and for how long" },
+    { id: "i2", titre: "Passer une entrevue d'embauche", but: "answer common job-interview questions: experience, strengths, availability, why you want the job" },
+    { id: "i3", titre: "Comprendre et expliquer la sécurité", but: "understand and explain workplace safety rules: protective equipment, hazards, what to do in an emergency" },
+    { id: "i4", titre: "Régler un problème au travail", but: "report and solve a problem at work: a machine that stopped, missing parts, a mistake, asking a supervisor what to do" },
+    { id: "i5", titre: "Au téléphone", but: "handle a phone call: booking an appointment, asking for information, spelling a name, confirming a date and time" }
+  ],
+  avance: [
+    { id: "a1", titre: "Donner ton opinion et la défendre", but: "give and defend an opinion in a meeting: agreeing, disagreeing politely, giving reasons and examples" },
+    { id: "a2", titre: "Négocier", but: "negotiate: a salary, a schedule or a rent — making an offer, a counter-offer and reaching an agreement" },
+    { id: "a3", titre: "Gérer un conflit avec tact", but: "handle a complaint or a disagreement with a coworker tactfully: staying calm, rephrasing, proposing a solution" },
+    { id: "a4", titre: "Expliquer une procédure", but: "explain a procedure step by step and train a new coworker: sequencing words, checking understanding, giving feedback" },
+    { id: "a5", titre: "L'entrevue avancée", but: "answer behavioural interview questions with a structured story: the situation, what you did and the result" }
+  ]
+};
+function promptEtape(e) {
+  return `You are an English tutor running a guided lesson step for a French-Canadian adult learner. STEP GOAL: help the learner ${e.but}. Start by greeting the learner, say in one short sentence what you will practise together, and teach 3 useful phrases for this goal, each followed by its French meaning in parentheses. Then practise through realistic questions or a short role-play, ONE question at a time, always staying on this goal. Correct the learner's English mistakes gently, with the correction explained IN FRENCH in brackets like [Correction: ...].`;
+}
+const CONSIGNE_EVAL_ETAPE = `(The practice part is over. Now run the step evaluation. Ask exactly 4 short questions, ONE at a time, that check the step goal. During the evaluation do NOT correct mistakes and do NOT use "Repeat after me"; still add the [FR: ...] translation after each question. After the learner has answered the 4th question, ask nothing more: write your final message entirely IN FRENCH (tutoiement, Quebec French). It must start with the tag [RESULT: reussi] if the learner showed they can do the step goal reasonably well, or [RESULT: a_revoir] if not, followed by two short sentences: what went well and what to review. Do not add [FR: ...] to that final message. Start now with evaluation question 1.)`;
+
+Object.keys(PARCOURS).forEach(niv => PARCOURS[niv].forEach((e, k) => {
+  e.niveau = niv; e.numero = k + 1;
+  SCENARIOS["etape_" + e.id] = { label: "Étape " + e.numero + " — " + e.titre, systemPrompt: promptEtape(e), starter: null, niveau: niv, etape: e };
+}));
+
+function lireParcours() {
+  try { const p = JSON.parse(localStorage.getItem(PARCOURS_CLE) || "{}"); return { terminees: p.terminees || {}, jours: p.jours || [], prenom: p.prenom || "" }; }
+  catch (e) { return { terminees: {}, jours: [], prenom: "" }; }
+}
+function ecrireParcours(p) { try { localStorage.setItem(PARCOURS_CLE, JSON.stringify(p)); } catch (e) {} }
+function jourLocal(d) { d = d || new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function noterJourDePratique() {
+  const p = lireParcours(), j = jourLocal();
+  if (!p.jours.includes(j)) { p.jours.push(j); p.jours = p.jours.slice(-400); ecrireParcours(p); }
+}
+function serieDeJours() {
+  const jours = new Set(lireParcours().jours);
+  const d = new Date();
+  if (!jours.has(jourLocal(d))) d.setDate(d.getDate() - 1); // la série tient encore si on a pratiqué hier
+  let n = 0;
+  while (jours.has(jourLocal(d))) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+
+// ---------- Fenêtre « Mon parcours » ----------
+const parcoursModal = document.getElementById("parcoursModal");
+const parcoursListe = document.getElementById("parcoursListe");
+function afficherParcours() {
+  const p = lireParcours(), monNiveau = lireNiveau(), serie = serieDeJours();
+  const faites = Object.keys(p.terminees).length;
+  document.getElementById("parcoursResume").textContent =
+    faites + " étape" + (faites > 1 ? "s" : "") + " réussie" + (faites > 1 ? "s" : "") + " sur 15" +
+    (serie > 0 ? " · 🔥 " + serie + " jour" + (serie > 1 ? "s" : "") + " de suite" : "") +
+    ". Chaque étape dure environ 15 minutes et se termine par une petite évaluation.";
+  parcoursListe.innerHTML = "";
+  Object.keys(PARCOURS).forEach(niv => {
+    const titre = document.createElement("div");
+    titre.className = "parcours-niveau";
+    titre.textContent = NIVEAUX[niv].nom + (niv === monNiveau ? " — ton niveau" : "");
+    parcoursListe.appendChild(titre);
+    PARCOURS[niv].forEach((e, k) => {
+      const faite = !!p.terminees[e.id];
+      const ouverte = k === 0 || !!p.terminees[PARCOURS[niv][k - 1].id];
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "parcours-etape" + (faite ? " faite" : "") + (ouverte ? "" : " verrou");
+      b.disabled = !ouverte;
+      b.textContent = (faite ? "✅ " : ouverte ? "▶ " : "🔒 ") + e.numero + ". " + e.titre;
+      b.addEventListener("click", () => { parcoursModal.classList.remove("open"); demarrerEtape(e); });
+      parcoursListe.appendChild(b);
+    });
+  });
+}
+document.getElementById("parcoursBtn").addEventListener("click", () => { afficherParcours(); parcoursModal.classList.add("open"); });
+document.getElementById("parcoursFermer").addEventListener("click", () => parcoursModal.classList.remove("open"));
+
+// ---------- Une session ----------
+const sessionBar = document.getElementById("sessionBar");
+const sessionTitre = document.getElementById("sessionTitre");
+const sessionTemps = document.getElementById("sessionTemps");
+const sessionEvalBtn = document.getElementById("sessionEvalBtn");
+let session = null; // { etape, debut, minuterie, messages, enEvaluation, avisDonne }
+
+function arreterSession() {
+  if (session && session.minuterie) clearInterval(session.minuterie);
+  session = null;
+  sessionBar.style.display = "none";
+}
+function majTemps() {
+  if (!session) return;
+  const s = Math.floor((Date.now() - session.debut) / 1000);
+  const mmss = t => Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0");
+  sessionTemps.textContent = session.enEvaluation ? "Évaluation en cours" : mmss(s) + " / " + mmss(DUREE_ETAPE);
+  if (!session.enEvaluation && !session.avisDonne && s >= DUREE_ETAPE) {
+    session.avisDonne = true;
+    sessionEvalBtn.classList.add("pret");
+    addMessage("system-note", "⏱ 15 minutes de pratique, bravo ! Tu peux passer à l'évaluation quand tu veux, ou continuer encore un peu.");
+  }
+}
+function demarrerEtape(e) {
+  examToggle.checked = false;
+  resetConversation("etape_" + e.id);
+}
+// Appelée par resetConversation à chaque changement de scénario.
+function preparerSession(scenarioKey) {
+  arreterSession();
+  const sc = SCENARIOS[scenarioKey];
+  if (!sc || !sc.etape) return;
+  session = { etape: sc.etape, debut: Date.now(), messages: 0, enEvaluation: false, avisDonne: false, minuterie: null };
+  sessionTitre.textContent = NIVEAUX[sc.etape.niveau].nom + " · Étape " + sc.etape.numero + " : " + sc.etape.titre;
+  sessionEvalBtn.style.display = "";
+  sessionEvalBtn.classList.remove("pret");
+  sessionBar.style.display = "flex";
+  majTemps();
+  session.minuterie = setInterval(majTemps, 1000);
+}
+document.getElementById("sessionQuitter").addEventListener("click", () => resetConversation(scenarioSelect.value));
+
+sessionEvalBtn.addEventListener("click", async () => {
+  if (!session || session.enEvaluation || isSending) return;
+  if (session.messages < MESSAGES_MIN_AVANT_EVAL) {
+    addMessage("system-note", "Pratique encore un peu avant l'évaluation : réponds au tuteur au moins " + MESSAGES_MIN_AVANT_EVAL + " fois.");
+    return;
+  }
+  const cle = currentScenario;
+  session.enEvaluation = true;
+  sessionEvalBtn.style.display = "none";
+  majTemps();
+  addMessage("system-note", "📝 Évaluation de l'étape : 4 questions. Le tuteur ne corrige pas pendant l'évaluation.");
+  history.push({ role: "user", content: CONSIGNE_EVAL_ETAPE });
+  isSending = true; sendBtn.disabled = true;
+  const attente = addMessage("system-note", "Le tuteur prépare l'évaluation…");
+  try {
+    const q = await callGroq();
+    if (currentScenario !== cle) return;
+    attente.remove();
+    history.push({ role: "assistant", content: q });
+    addMessage("ai", q);
+    speak(q);
+  } catch (err) {
+    attente.textContent = "⚠ L'évaluation n'a pas pu démarrer. Réessaie dans un instant.";
+    if (session) { session.enEvaluation = false; sessionEvalBtn.style.display = ""; }
+  } finally {
+    isSending = false; sendBtn.disabled = false;
+  }
+});
+
+// Fin de l'évaluation d'étape : balise [RESULT: reussi] ou [RESULT: a_revoir].
+function terminerEtape(reply) {
+  const m = reply.match(/\[RESULT:\s*(reussi|a_revoir)\s*\]/i);
+  if (!m || !session) return false;
+  const reussi = m[1].toLowerCase() === "reussi";
+  const e = session.etape;
+  const bilan = reply.replace(/\[RESULT:[^\]]*\]/gi, "").replace(/\[FR:(.*?)\]/gs, "$1").trim();
+  if (session.minuterie) clearInterval(session.minuterie);
+  sessionTemps.textContent = reussi ? "Étape réussie" : "À revoir";
+  const note = addMessage("system-note", (reussi ? "🎉 Étape réussie ! " : "💪 Pas encore, mais tu avances. ") + bilan);
+  note.style.fontStyle = "normal";
+  const bouton = (texte, action, secondaire) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = texte;
+    b.style.cssText = "display:block;margin:8px auto 0;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-family:inherit;" +
+      (secondaire ? "background:#e9edf2;color:var(--text);" : "background:var(--accent);color:#fff;");
+    b.addEventListener("click", action);
+    note.appendChild(b);
+    return b;
+  };
+  if (reussi) {
+    const p = lireParcours();
+    if (!p.terminees[e.id]) p.terminees[e.id] = new Date().toISOString();
+    ecrireParcours(p);
+    const champ = document.createElement("input");
+    champ.type = "text"; champ.maxLength = 40; champ.placeholder = "Ton prénom pour le certificat"; champ.value = p.prenom;
+    champ.style.cssText = "display:block;margin:10px auto 0;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;width:min(260px,100%);box-sizing:border-box;";
+    note.appendChild(champ);
+    bouton("📜 Télécharger mon certificat", () => {
+      const prenom = champ.value.trim();
+      const pp = lireParcours(); pp.prenom = prenom; ecrireParcours(pp);
+      telechargerCertificat(e, prenom, pp.terminees[e.id]);
+    });
+    const liste = PARCOURS[e.niveau], suivante = liste[e.numero];
+    if (suivante) bouton("▶ Étape suivante : " + suivante.titre, () => demarrerEtape(suivante));
+    else bouton("🎓 Voir mon parcours", () => { afficherParcours(); parcoursModal.classList.add("open"); });
+  } else {
+    bouton("🔁 Refaire cette étape", () => demarrerEtape(e));
+    bouton("🎓 Voir mon parcours", () => { afficherParcours(); parcoursModal.classList.add("open"); }, true);
+  }
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+  return true;
+}
+
+// ---------- Certificat (image PNG dessinée dans la page) ----------
+function telechargerCertificat(e, prenom, dateISO) {
+  const c = document.createElement("canvas");
+  c.width = 1400; c.height = 990;
+  const x = c.getContext("2d");
+  x.fillStyle = "#fbfaf6"; x.fillRect(0, 0, 1400, 990);
+  x.strokeStyle = "#1f3a5f"; x.lineWidth = 14; x.strokeRect(40, 40, 1320, 910);
+  x.strokeStyle = "#2e6f5e"; x.lineWidth = 3; x.strokeRect(64, 64, 1272, 862);
+  x.textAlign = "center";
+  x.fillStyle = "#1f3a5f"; x.font = "700 40px Georgia, 'Times New Roman', serif";
+  x.fillText("AngloShift 🍁", 700, 160);
+  x.font = "700 78px Georgia, 'Times New Roman', serif";
+  x.fillText("Certificat de réussite", 700, 280);
+  x.fillStyle = "#4b5563"; x.font = "400 30px Georgia, 'Times New Roman', serif";
+  x.fillText("décerné à", 700, 360);
+  x.fillStyle = "#2e6f5e"; x.font = "700 72px Georgia, 'Times New Roman', serif";
+  x.fillText(prenom || "l'élève d'AngloShift", 700, 460, 1150);
+  x.strokeStyle = "#c9a23a"; x.lineWidth = 3; x.beginPath(); x.moveTo(430, 492); x.lineTo(970, 492); x.stroke();
+  x.fillStyle = "#4b5563"; x.font = "400 30px Georgia, 'Times New Roman', serif";
+  x.fillText("pour avoir réussi l'étape " + e.numero + " du niveau " + NIVEAUX[e.niveau].nom, 700, 570);
+  x.fillStyle = "#1f3a5f"; x.font = "700 46px Georgia, 'Times New Roman', serif";
+  x.fillText("« " + e.titre + " »", 700, 650, 1150);
+  const d = dateISO ? new Date(dateISO) : new Date();
+  x.fillStyle = "#4b5563"; x.font = "400 28px Georgia, 'Times New Roman', serif";
+  x.fillText("Le " + d.toLocaleDateString("fr-CA", { year: "numeric", month: "long", day: "numeric" }), 700, 760);
+  x.font = "italic 24px Georgia, 'Times New Roman', serif";
+  x.fillText("Pratique de l'anglais au travail, une étape à la fois.", 700, 850);
+  const a = document.createElement("a");
+  a.download = "certificat-angloshift-" + e.id + ".png";
+  a.href = c.toDataURL("image/png");
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
 chargerPersos();
 resetConversation(currentScenario);
 afficherNiveau();
