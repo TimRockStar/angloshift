@@ -593,7 +593,9 @@ IMPORTANT — TRANSLATION: At the very end of EVERY one of your messages, withou
 
 IMPORTANT — SPOKEN PRONUNCIATION OF CORRECTIONS: Whenever you give a [Correction: ...], you must ALSO naturally say the corrected English phrase as a normal part of your English reply (outside the brackets), not only inside the bracket. Example: if the learner said "I work here since two years" and you correct that to "I have been working here for two years", your visible English reply should actually contain the sentence "I have been working here for two years" somewhere (e.g. "Great, so you have been working here for two years — what does a typical day look like?"). This matters because the app reads your English reply out loud with real English pronunciation, and repeating the corrected phrase is how the learner hears the correct pronunciation.
 
-IMPORTANT — REPEAT AFTER ME: Whenever you give a [Correction: ...], end your English reply (before the brackets) with exactly this pattern: Repeat after me: "the full corrected English sentence". Do not ask any other question in that same message; wait for the learner to repeat. In the learner's next message: if they repeated the sentence correctly (ignore capital letters, punctuation and tiny typos), praise them in a few words and then continue the conversation where it left off, asking your next question. If it is still wrong, give the correct sentence once more with a new "Repeat after me:" — but only one extra try; after that second attempt, encourage them and move on with the conversation no matter what. Never ask the learner to repeat when they made no mistake.`;
+IMPORTANT — REPEAT AFTER ME: Whenever you give a [Correction: ...], end your English reply (before the brackets) with exactly this pattern: Repeat after me: "the full corrected English sentence". Do not ask any other question in that same message; wait for the learner to repeat. In the learner's next message: if they repeated the sentence correctly (ignore capital letters, punctuation and tiny typos), praise them in a few words and then continue the conversation where it left off, asking your next question. If it is still wrong, give the correct sentence once more with a new "Repeat after me:" — but only one extra try; after that second attempt, encourage them and move on with the conversation no matter what. Never ask the learner to repeat when they made no mistake.
+
+IMPORTANT — END OF THE SITUATION: Keep the conversation going as long as it makes sense. When the situation reaches its natural end (for example the interview is over, the phone call is finished, the problem is solved), say goodbye in character and put the tag [END] at the very end of that message, after the [FR: ...] translation. Use [END] only once, when the situation is really finished.`;
 
 // ------------------------------------------------------------
 // Niveau de l'élève : gardé sur l'appareil, ajouté aux consignes du tuteur.
@@ -662,7 +664,7 @@ function saveProgressLog(log) {
 // crochet ouvrant manquant, crochet fermant manquant, « FR : » avec une espace.
 function decouperReponse(texte) {
   const corrections = [], traductions = [];
-  let reste = String(texte || "").replace(/\[\s*Say\s*:[\s\S]*?(\]|$)/gi, " ");
+  let reste = String(texte || "").replace(/\[\s*Say\s*:[\s\S]*?(\]|$)/gi, " ").replace(/\[\s*END\s*\]/gi, " ");
   const extraire = (etiquette, liste) => {
     // 1) forme normale : [Etiquette: ...]   2) crochet fermant oublié : jusqu'au prochain crochet ou la fin
     const avecCrochet = new RegExp("\\[\\s*" + etiquette + "\\s*:\\s*([\\s\\S]*?)(?:\\]|(?=\\[)|$)", "gi");
@@ -1421,6 +1423,7 @@ composer.addEventListener("submit", async (e) => {
   const text = userInput.value.trim();
   if (!text || isSending) return;
 
+  if (microVoulu && recognizer) { microVoulu = false; try { recognizer.stop(); } catch (e2) {} }
   clearEmptyState();
   addMessage("user", text);
   history.push({ role: "user", content: text });
@@ -1457,6 +1460,7 @@ composer.addEventListener("submit", async (e) => {
         addMessage("ai", reply);
         speak(reply);
         if (currentScenario !== EVALUATION && !(session && session.enEvaluation)) logCorrections(reply, currentScenario);
+        if (/\[\s*END\s*\]/i.test(reply) && !(session && session.enEvaluation)) afficherFinDeSituation();
         if (session) {
           sauverSession();
           if (!session.enEvaluation && !session.inviteDonnee && session.messages >= 6) {
@@ -1501,6 +1505,8 @@ let recognizer = null;
 
 const MICRO_AIDE = "🎤 Le micro de l'application ne fonctionne pas dans ce navigateur (c'est le cas de Brave). Deux solutions : ouvre AngloShift dans Google Chrome, ou touche la case de texte et sers-toi du micro de ton clavier.";
 let texteAvantMicro = "";
+let microVoulu = false;      // vrai tant que l'utilisateur n'a pas arrêté le micro lui-même
+let dernierSonMicro = 0;
 
 if (SpeechRecognition) {
   recognizer = new SpeechRecognition();
@@ -1531,15 +1537,25 @@ if (SpeechRecognition) {
       else if (!norm(dit).endsWith(norm(provisoire))) dit += " " + provisoire;
     }
     userInput.value = (texteAvantMicro + dit).replace(/\s+/g, " ").trim();
+    dernierSonMicro = Date.now();
+  };
+  // Le téléphone coupe l'écoute après quelques secondes de silence. Tant que
+  // l'utilisateur n'a pas retouché le micro, on la relance tout de suite et on
+  // garde ce qui a déjà été dit. Après 25 secondes sans un mot, on arrête pour de bon.
+  const arreterMicro = () => {
+    microVoulu = false; recognizing = false;
+    micBtn.classList.remove("recording");
   };
   recognizer.onend = () => {
-    recognizing = false;
-    micBtn.classList.remove("recording");
+    if (microVoulu && Date.now() - dernierSonMicro < 25000) {
+      texteAvantMicro = userInput.value ? userInput.value.trim() + " " : "";
+      try { recognizer.start(); return; } catch (e) {}
+    }
+    arreterMicro();
   };
   recognizer.onerror = (event) => {
-    recognizing = false;
-    micBtn.classList.remove("recording");
-    if (event.error === "no-speech" || event.error === "aborted") return;
+    if (event.error === "no-speech" || event.error === "aborted") return; // onend décidera de relancer ou non
+    arreterMicro();
     if (event.error === "not-allowed") {
       addMessage("system-note", "🎤 Le micro est bloqué. Autorise le micro pour ce site dans les réglages de ton navigateur, puis réessaie.");
     } else {
@@ -1549,6 +1565,7 @@ if (SpeechRecognition) {
 
   micBtn.addEventListener("click", () => {
     if (recognizing) {
+      microVoulu = false;
       recognizer.stop(); // touche le micro une 2e fois pour arrêter
       return;
     }
@@ -1556,6 +1573,8 @@ if (SpeechRecognition) {
     try {
       recognizer.start();
       recognizing = true;
+      microVoulu = true;
+      dernierSonMicro = Date.now();
       micBtn.classList.add("recording");
     } catch (e) {
       addMessage("system-note", MICRO_AIDE);
@@ -1670,6 +1689,32 @@ const sessionTitre = document.getElementById("sessionTitre");
 const sessionTemps = document.getElementById("sessionTemps");
 const sessionEvalBtn = document.getElementById("sessionEvalBtn");
 let session = null; // { etape, debut, minuterie, messages, enEvaluation, avisDonne }
+
+// ---------- Quand le tuteur termine la situation : on propose la suite ----------
+function afficherFinDeSituation() {
+  const dansEtape = !!session;
+  const note = addMessage("system-note", dansEtape
+    ? "✅ La mise en situation est terminée. Passe maintenant à l'évaluation pour valider l'étape et obtenir ton certificat."
+    : "✅ La mise en situation est terminée. Bravo ! Que veux-tu faire maintenant ?");
+  note.style.fontStyle = "normal";
+  const bouton = (texte, action, secondaire) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = texte;
+    b.style.cssText = "display:block;margin:8px auto 0;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-family:inherit;" +
+      (secondaire ? "background:#e9edf2;color:var(--text);" : "background:var(--accent);color:#fff;");
+    b.addEventListener("click", action);
+    note.appendChild(b);
+  };
+  if (dansEtape) {
+    sessionEvalBtn.classList.add("pret");
+    bouton("📝 Passer à l'évaluation", () => sessionEvalBtn.click());
+    bouton("Continuer à pratiquer", () => { note.remove(); userInput.focus(); }, true);
+  } else {
+    bouton("🔁 Recommencer cette situation", () => resetConversation(currentScenario));
+    bouton("🎓 Voir mon parcours", () => { afficherParcours(); parcoursModal.classList.add("open"); }, true);
+  }
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+}
 
 // ---------- Étape en cours : gardée sur l'appareil pour pouvoir la reprendre ----------
 const SESSION_CLE = "angloshift_session";
