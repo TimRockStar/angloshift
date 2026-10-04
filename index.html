@@ -580,6 +580,8 @@ const SCENARIOS = {
 let currentScenario = "interview";
 let history = []; // {role: "system"|"user"|"assistant", content: "..."}
 let isSending = false;
+let reponsesNiveau = 0;      // réponses données pendant l'évaluation de niveau
+let repriseSauvee = null;    // étape à reprendre au lieu d'en recommencer une
 let examMode = false;
 let examTimerInterval = null;
 let examSecondsLeft = 0;
@@ -1132,6 +1134,15 @@ function resetConversation(scenarioKey) {
   note.textContent = "Scénario : " + scenario.label + (isExam ? " — Mode examen blanc" : "");
   chatWindow.appendChild(note);
 
+  reponsesNiveau = 0;
+  if (repriseSauvee) {
+    restaurerConversation(repriseSauvee);
+    repriseSauvee = null;
+    return;
+  }
+  if (scenario.etape) {
+    addMessage("system-note", "🎓 Pratique avec le tuteur. Quand tu es prêt, touche « 📝 Évaluation » en haut pour terminer l'étape et obtenir ton certificat. Ta progression est gardée si tu fermes l'application.");
+  }
   if (scenario.starter) {
     history.push({ role: "assistant", content: scenario.starter });
     addMessage("ai", scenario.starter);
@@ -1246,6 +1257,7 @@ async function demarrerScenarioPerso(scenarioKey) {
     history.push({ role: "assistant", content: premiere });
     addMessage("ai", premiere);
     speak(premiere);
+    if (session) sauverSession();
   } catch (e) {
     if (currentScenario !== scenarioKey) return;
     attente.textContent = "⚠ Le tuteur n'a pas pu démarrer ce scénario. Réessaie avec le bouton Effacer.";
@@ -1293,11 +1305,11 @@ document.getElementById("niveauEvaluer").addEventListener("click", () => {
 
 // Fin de l'évaluation : le tuteur donne le niveau dans une balise [LEVEL: ...].
 function terminerEvaluation(reply) {
-  const m = reply.match(/\[LEVEL:\s*(debutant|intermediaire|avance)\s*\]/i);
+  const m = reply.match(/\[?\s*LEVEL\s*:\s*(d[ée]butant|interm[ée]diaire|avanc[ée])/i);
   if (!m) return false;
-  const n = m[1].toLowerCase();
+  const n = m[1].toLowerCase().replace(/é/g, "e");
   enregistrerNiveau(n);
-  const bilan = reply.replace(/\[LEVEL:[^\]]*\]/gi, "").replace(/\[FR:(.*?)\]/gs, "$1").trim();
+  const bilan = reply.replace(/\[?\s*LEVEL\s*:\s*[a-zéèA-Z_ ]*\]?/i, "").replace(/\[FR:(.*?)\]/gs, "$1").replace(/[\[\]]/g, "").trim();
   const note = addMessage("system-note", "🎯 Ton niveau : " + NIVEAUX[n].nom + ". " + bilan);
   note.style.fontStyle = "normal";
   const b = document.createElement("button");
@@ -1412,7 +1424,8 @@ composer.addEventListener("submit", async (e) => {
   clearEmptyState();
   addMessage("user", text);
   history.push({ role: "user", content: text });
-  if (session) { session.messages++; noterJourDePratique(); }
+  if (session) { session.messages++; noterJourDePratique(); if (session.enEvaluation) session.reponsesEval = (session.reponsesEval || 0) + 1; }
+  if (currentScenario === EVALUATION) reponsesNiveau++;
   userInput.value = "";
   isSending = true;
   sendBtn.disabled = true;
@@ -1420,7 +1433,19 @@ composer.addEventListener("submit", async (e) => {
   const thinking = addMessage("system-note", "Le tuteur écrit...");
 
   try {
-    const reply = await callGroq();
+    let reply = await callGroq();
+    // Si l'IA oublie de conclure après la dernière question, on lui redemande le résultat.
+    const finEtape = session && session.enEvaluation && session.reponsesEval >= 4 && !/RESULT\s*:/i.test(reply);
+    const finNiveau = currentScenario === EVALUATION && reponsesNiveau >= 5 && !/LEVEL\s*:/i.test(reply);
+    if (finEtape || finNiveau) {
+      history.push({ role: "assistant", content: reply });
+      history.push({ role: "user", content: finEtape
+        ? "(The evaluation is finished. Give the final result now, in French: start with [RESULT: reussi] or [RESULT: a_revoir], then two short sentences.)"
+        : "(The placement is finished. Give the final result now, in French: start with [LEVEL: debutant] or [LEVEL: intermediaire] or [LEVEL: avance], then two or three short sentences.)" });
+      reply = await callGroq();
+      if (finEtape && !/RESULT\s*:/i.test(reply)) reply = (/(bravo|réussi|félicit|well done|passed)/i.test(reply) ? "[RESULT: reussi] " : "[RESULT: a_revoir] ") + reply;
+      if (finNiveau && !/LEVEL\s*:/i.test(reply)) reply = "[LEVEL: intermediaire] " + reply;
+    }
     thinking.remove();
     if (reply) {
       history.push({ role: "assistant", content: reply });
@@ -1432,6 +1457,14 @@ composer.addEventListener("submit", async (e) => {
         addMessage("ai", reply);
         speak(reply);
         if (currentScenario !== EVALUATION && !(session && session.enEvaluation)) logCorrections(reply, currentScenario);
+        if (session) {
+          sauverSession();
+          if (!session.enEvaluation && !session.inviteDonnee && session.messages >= 6) {
+            session.inviteDonnee = true;
+            sessionEvalBtn.classList.add("pret");
+            addMessage("system-note", "👍 Tu as bien pratiqué. Quand tu te sens prêt, touche « 📝 Évaluation » en haut pour terminer l'étape et obtenir ton certificat.");
+          }
+        }
       }
     }
   } catch (err) {
@@ -1599,7 +1632,7 @@ function serieDeJours() {
 const parcoursModal = document.getElementById("parcoursModal");
 const parcoursListe = document.getElementById("parcoursListe");
 function afficherParcours() {
-  const p = lireParcours(), monNiveau = lireNiveau(), serie = serieDeJours();
+  const p = lireParcours(), monNiveau = lireNiveau(), serie = serieDeJours(), sauvee = lireSessionSauvee();
   const faites = Object.keys(p.terminees).length;
   document.getElementById("parcoursResume").textContent =
     faites + " étape" + (faites > 1 ? "s" : "") + " réussie" + (faites > 1 ? "s" : "") + " sur 15" +
@@ -1618,8 +1651,12 @@ function afficherParcours() {
       b.type = "button";
       b.className = "parcours-etape" + (faite ? " faite" : "") + (ouverte ? "" : " verrou");
       b.disabled = !ouverte;
-      b.textContent = (faite ? "✅ " : ouverte ? "▶ " : "🔒 ") + e.numero + ". " + e.titre;
-      b.addEventListener("click", () => { parcoursModal.classList.remove("open"); demarrerEtape(e); });
+      const enCours = sauvee && sauvee.cle === "etape_" + e.id;
+      b.textContent = (enCours ? "⏸ " : faite ? "✅ " : ouverte ? "▶ " : "🔒 ") + e.numero + ". " + e.titre + (enCours ? " — en cours, toucher pour reprendre" : "");
+      b.addEventListener("click", () => {
+        parcoursModal.classList.remove("open");
+        if (enCours) reprendreSession(sauvee); else { oublierSession(); demarrerEtape(e); }
+      });
       parcoursListe.appendChild(b);
     });
   });
@@ -1633,6 +1670,51 @@ const sessionTitre = document.getElementById("sessionTitre");
 const sessionTemps = document.getElementById("sessionTemps");
 const sessionEvalBtn = document.getElementById("sessionEvalBtn");
 let session = null; // { etape, debut, minuterie, messages, enEvaluation, avisDonne }
+
+// ---------- Étape en cours : gardée sur l'appareil pour pouvoir la reprendre ----------
+const SESSION_CLE = "angloshift_session";
+function sauverSession() {
+  if (!session) return;
+  try {
+    localStorage.setItem(SESSION_CLE, JSON.stringify({
+      cle: "etape_" + session.etape.id, history: history,
+      ecoule: Math.floor((Date.now() - session.debut) / 1000),
+      messages: session.messages, enEvaluation: session.enEvaluation,
+      reponsesEval: session.reponsesEval || 0, quand: Date.now()
+    }));
+  } catch (e) {}
+}
+function lireSessionSauvee() {
+  try {
+    const sv = JSON.parse(localStorage.getItem(SESSION_CLE) || "null");
+    if (!sv || !SCENARIOS[sv.cle] || !Array.isArray(sv.history) || sv.history.length < 2) return null;
+    if (Date.now() - sv.quand > 14 * 24 * 3600 * 1000) return null; // après deux semaines, on repart à neuf
+    return sv;
+  } catch (e) { return null; }
+}
+function oublierSession() { try { localStorage.removeItem(SESSION_CLE); } catch (e) {} }
+function reprendreSession(sv) {
+  examToggle.checked = false;
+  repriseSauvee = sv;
+  resetConversation(sv.cle);
+}
+// Réaffiche la conversation sauvegardée, sans rappeler le tuteur.
+function restaurerConversation(sv) {
+  history = sv.history;
+  history.forEach(m => {
+    if (m.role === "assistant") addMessage("ai", m.content);
+    else if (m.role === "user" && m.content.charAt(0) !== "(") addMessage("user", m.content);
+  });
+  if (session) {
+    session.debut = Date.now() - (sv.ecoule || 0) * 1000;
+    session.messages = sv.messages || 0;
+    session.enEvaluation = !!sv.enEvaluation;
+    session.reponsesEval = sv.reponsesEval || 0;
+    if (session.enEvaluation) sessionEvalBtn.style.display = "none";
+    majTemps();
+  }
+  addMessage("system-note", "▶ Étape reprise où tu l'avais laissée. Réponds au dernier message du tuteur.");
+}
 
 function arreterSession() {
   if (session && session.minuterie) clearInterval(session.minuterie);
@@ -1667,7 +1749,7 @@ function preparerSession(scenarioKey) {
   majTemps();
   session.minuterie = setInterval(majTemps, 1000);
 }
-document.getElementById("sessionQuitter").addEventListener("click", () => resetConversation(scenarioSelect.value));
+document.getElementById("sessionQuitter").addEventListener("click", () => { oublierSession(); resetConversation(scenarioSelect.value); });
 
 sessionEvalBtn.addEventListener("click", async () => {
   if (!session || session.enEvaluation || isSending) return;
@@ -1680,6 +1762,7 @@ sessionEvalBtn.addEventListener("click", async () => {
   sessionEvalBtn.style.display = "none";
   majTemps();
   addMessage("system-note", "📝 Évaluation de l'étape : 4 questions. Le tuteur ne corrige pas pendant l'évaluation.");
+  session.reponsesEval = 0;
   history.push({ role: "user", content: CONSIGNE_EVAL_ETAPE });
   isSending = true; sendBtn.disabled = true;
   const attente = addMessage("system-note", "Le tuteur prépare l'évaluation…");
@@ -1690,6 +1773,7 @@ sessionEvalBtn.addEventListener("click", async () => {
     history.push({ role: "assistant", content: q });
     addMessage("ai", q);
     speak(q);
+    sauverSession();
   } catch (err) {
     attente.textContent = "⚠ L'évaluation n'a pas pu démarrer. Réessaie dans un instant.";
     if (session) { session.enEvaluation = false; sessionEvalBtn.style.display = ""; }
@@ -1700,12 +1784,13 @@ sessionEvalBtn.addEventListener("click", async () => {
 
 // Fin de l'évaluation d'étape : balise [RESULT: reussi] ou [RESULT: a_revoir].
 function terminerEtape(reply) {
-  const m = reply.match(/\[RESULT:\s*(reussi|a_revoir)\s*\]/i);
+  const m = reply.match(/\[?\s*RESULT\s*:\s*(r[ée]ussi|[aà][_ ]revoir)/i);
   if (!m || !session) return false;
-  const reussi = m[1].toLowerCase() === "reussi";
+  const reussi = /^r/i.test(m[1]);
   const e = session.etape;
-  const bilan = reply.replace(/\[RESULT:[^\]]*\]/gi, "").replace(/\[FR:(.*?)\]/gs, "$1").trim();
+  const bilan = reply.replace(/\[?\s*RESULT\s*:\s*(r[ée]ussi|[aà][_ ]revoir)\s*\]?/i, "").replace(/\[FR:(.*?)\]/gs, "$1").replace(/[\[\]]/g, "").trim();
   if (session.minuterie) clearInterval(session.minuterie);
+  oublierSession();
   sessionTemps.textContent = reussi ? "Étape réussie" : "À revoir";
   const note = addMessage("system-note", (reussi ? "🎉 Étape réussie ! " : "💪 Pas encore, mais tu avances. ") + bilan);
   note.style.fontStyle = "normal";
@@ -1779,6 +1864,18 @@ chargerPersos();
 resetConversation(currentScenario);
 afficherNiveau();
 if (!lireNiveau()) niveauModal.classList.add("open");
+(function proposerReprise() {
+  const sv = lireSessionSauvee();
+  if (!sv) return;
+  const e = SCENARIOS[sv.cle].etape;
+  const note = addMessage("system-note", "⏸ Tu as une étape en cours : « " + e.titre + " » (" + NIVEAUX[e.niveau].nom + ").");
+  note.style.fontStyle = "normal";
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = "▶ Reprendre cette étape";
+  b.style.cssText = "display:block;margin:8px auto 0;padding:8px 14px;border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;font-family:inherit;";
+  b.addEventListener("click", () => reprendreSession(sv));
+  note.appendChild(b);
+})();
 </script>
 
 </body>
