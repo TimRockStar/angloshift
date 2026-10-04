@@ -851,18 +851,40 @@ async function chercherAudio(morceau, voix) {
     try { const j = await rep.json(); detail = (j.error && j.error.message) || JSON.stringify(j); } catch (e) {}
     throw new Error("erreur " + rep.status + (detail ? " : " + detail : ""));
   }
-  const blob = await rep.blob();
-  if (!blob.size || (blob.type && blob.type.indexOf("json") >= 0)) throw new Error("voix vide");
-  return URL.createObjectURL(blob);
+  const donnees = await rep.arrayBuffer();
+  if (!donnees.byteLength) throw new Error("voix vide");
+  return donnees;
 }
 
-function jouer(url) {
-  return new Promise((resolve, reject) => {
-    const a = new Audio(url);
-    audioEnCours = a;
-    a.onended = () => { URL.revokeObjectURL(url); resolve(); };
-    a.onerror = () => reject(new Error("lecture audio"));
-    a.play().catch(reject);
+// Le son passe par un « contexte audio » réveillé au premier toucher de l'utilisateur.
+// Sans ça, plusieurs navigateurs de téléphone (Brave surtout) bloquent un son qui
+// démarre tout seul quelques secondes après le toucher.
+let contexteAudio = null;
+function reveillerAudio() {
+  try {
+    const C = window.AudioContext || window.webkitAudioContext;
+    if (!C) return;
+    if (!contexteAudio) contexteAudio = new C();
+    if (contexteAudio.state === "suspended") contexteAudio.resume();
+  } catch (e) {}
+}
+["pointerdown", "touchend", "keydown", "click"].forEach(ev => document.addEventListener(ev, reveillerAudio, true));
+
+async function jouer(donnees) {
+  reveillerAudio();
+  if (!contexteAudio) throw new Error("audio non pris en charge");
+  if (contexteAudio.state !== "running") {
+    try { await contexteAudio.resume(); } catch (e) {}
+    if (contexteAudio.state !== "running") throw new Error("son bloqué par le navigateur");
+  }
+  const tampon = await contexteAudio.decodeAudioData(donnees);
+  return new Promise(resolve => {
+    const source = contexteAudio.createBufferSource();
+    source.buffer = tampon;
+    source.connect(contexteAudio.destination);
+    audioEnCours = { pause: () => { try { source.stop(); } catch (e) {} } };
+    source.onended = resolve;
+    source.start();
   });
 }
 
@@ -906,14 +928,18 @@ async function speak(text) {
     const demandes = couperEnMorceaux(cleanText).map(m => chercherAudio(m, voix));
     demandes.forEach(d => d.catch(() => {}));
     for (const d of demandes) {
-      const url = await d;
+      const donnees = await d;
       if (monNo !== lectureNo) return;
-      await jouer(url);
+      await jouer(donnees);
       if (monNo !== lectureNo) return;
     }
   } catch (e) {
     console.log("[AngloShift] Voix d'IA indisponible, voix du téléphone utilisée :", e.message);
     if (monNo !== lectureNo) return;
+    if (!window._voixIASignalee && e.message !== "rien à lire") {
+      window._voixIASignalee = true; // diagnostic temporaire, une seule fois par visite
+      addMessage("system-note", "🔧 Voix d'IA indisponible, voix du téléphone utilisée. Détail : " + e.message);
+    }
     if (audioEnCours) { try { audioEnCours.pause(); } catch (e2) {} audioEnCours = null; }
     await lireAvecTelephone(cleanText, "en");
   }
