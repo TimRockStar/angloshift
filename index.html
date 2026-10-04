@@ -1716,8 +1716,8 @@ Object.keys(PARCOURS).forEach(niv => PARCOURS[niv].forEach((e, k) => {
 }));
 
 function lireParcours() {
-  try { const p = JSON.parse(localStorage.getItem(PARCOURS_CLE) || "{}"); return { terminees: p.terminees || {}, jours: p.jours || [], prenom: p.prenom || "" }; }
-  catch (e) { return { terminees: {}, jours: [], prenom: "" }; }
+  try { const p = JSON.parse(localStorage.getItem(PARCOURS_CLE) || "{}"); return { terminees: p.terminees || {}, jours: p.jours || [], prenom: p.prenom || "", situations: p.situations || {}, derniere: p.derniere || "" }; }
+  catch (e) { return { terminees: {}, jours: [], prenom: "", situations: {}, derniere: "" }; }
 }
 function ecrireParcours(p) { try { localStorage.setItem(PARCOURS_CLE, JSON.stringify(p)); } catch (e) {} }
 function jourLocal(d) { d = d || new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
@@ -1788,6 +1788,22 @@ function prochaineEtape() {
   return null;
 }
 
+// Coche (✅) les situations déjà terminées dans la liste déroulante.
+function marquerSituations() {
+  const faites = lireParcours().situations;
+  [...scenarioSelect.options].forEach(o => {
+    const propre = o.textContent.replace(/^✅ /, "");
+    o.textContent = (faites[o.value] ? "✅ " : "") + propre;
+  });
+}
+// Boutons « Continuer » et « Situation suivante », utilisés à la fin d'une situation et au retour dans l'application.
+function situationSuivante(depuis) {
+  const options = [...scenarioSelect.options].filter(o => o.value !== PERSO_NOUVEAU);
+  const ici = options.findIndex(o => o.value === depuis);
+  const s = ici >= 0 ? options[(ici + 1) % options.length] : null;
+  return s && s.value !== depuis ? s : null;
+}
+
 // ---------- Quand le tuteur termine la situation : on propose la suite ----------
 function afficherFinDeSituation() {
   const dansEtape = !!session;
@@ -1809,12 +1825,13 @@ function afficherFinDeSituation() {
     bouton("Continuer à pratiquer", () => { note.remove(); userInput.focus(); }, true);
   } else {
     // « Continuer » : la prochaine étape à faire dans le parcours, puis la situation suivante de la liste.
+    const pp = lireParcours();
+    pp.situations[currentScenario] = new Date().toISOString(); pp.derniere = currentScenario;
+    ecrireParcours(pp); noterJourDePratique(); marquerSituations();
     const etape = prochaineEtape();
     if (etape) bouton("▶ Continuer : étape " + etape.numero + " du parcours, « " + etape.titre + " »", () => demarrerEtape(etape));
-    const options = [...scenarioSelect.options].filter(o => o.value !== PERSO_NOUVEAU);
-    const ici = options.findIndex(o => o.value === currentScenario);
-    const suivante = ici >= 0 ? options[(ici + 1) % options.length] : null;
-    if (suivante && suivante.value !== currentScenario) {
+    const suivante = situationSuivante(currentScenario);
+    if (suivante) {
       bouton("➡ Situation suivante : " + suivante.textContent, () => { scenarioSelect.value = suivante.value; resetConversation(suivante.value); }, !!etape);
     }
     bouton("🔁 Recommencer cette situation", () => resetConversation(currentScenario), true);
@@ -2016,8 +2033,31 @@ resetConversation(currentScenario);
 afficherNiveau();
 if (!lireNiveau()) niveauModal.classList.add("open");
 (function proposerReprise() {
+  marquerSituations();
   const sv = lireSessionSauvee();
-  if (!sv) return;
+  if (!sv) {
+    // Pas d'étape en cours : on rappelle la progression gardée et on propose la suite.
+    const p = lireParcours(), niv = lireNiveau();
+    const nbS = Object.keys(p.situations).length, nbE = Object.keys(p.terminees).length;
+    if (!niv || (!nbS && !nbE)) return;
+    const note = addMessage("system-note", "👋 Rebonjour ! Ta progression est gardée. Niveau : " + NIVEAUX[niv].nom + " · " +
+      nbS + " situation" + (nbS > 1 ? "s" : "") + " terminée" + (nbS > 1 ? "s" : "") + " · " +
+      nbE + " étape" + (nbE > 1 ? "s" : "") + " du parcours réussie" + (nbE > 1 ? "s" : "") + " sur 15.");
+    note.style.fontStyle = "normal";
+    const bouton = (texte, action, secondaire) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = texte;
+      b.style.cssText = "display:block;margin:8px auto 0;padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-family:inherit;" +
+        (secondaire ? "background:#e9edf2;color:var(--text);" : "background:var(--accent);color:#fff;");
+      b.addEventListener("click", action);
+      note.appendChild(b);
+    };
+    const etape = prochaineEtape();
+    if (etape) bouton("▶ Continuer : étape " + etape.numero + " du parcours, « " + etape.titre + " »", () => demarrerEtape(etape));
+    const suivante = p.derniere ? situationSuivante(p.derniere) : null;
+    if (suivante) bouton("➡ Situation suivante : " + suivante.textContent.replace(/^✅ /, ""), () => { scenarioSelect.value = suivante.value; resetConversation(suivante.value); }, !!etape);
+    return;
+  }
   const e = SCENARIOS[sv.cle].etape;
   const note = addMessage("system-note", "⏸ Tu as une étape en cours : « " + e.titre + " » (" + NIVEAUX[e.niveau].nom + ").");
   note.style.fontStyle = "normal";
