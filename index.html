@@ -1420,6 +1420,12 @@ async function callGroq() {
 
 composer.addEventListener("submit", async (e) => {
   e.preventDefault();
+  // Si on appuie sur Envoyer pendant l'enregistrement : on arrête, on transcrit, puis on envoie.
+  if (typeof enregistreur !== "undefined" && enregistreur && enregistreur.state === "recording") {
+    envoyerApresTranscription = true;
+    arreterEnregistrement();
+    return;
+  }
   const text = userInput.value.trim();
   if (!text || isSending) return;
 
@@ -1505,10 +1511,91 @@ let recognizer = null;
 
 const MICRO_AIDE = "🎤 Le micro de l'application ne fonctionne pas dans ce navigateur (c'est le cas de Brave). Deux solutions : ouvre AngloShift dans Google Chrome, ou touche la case de texte et sers-toi du micro de ton clavier.";
 let texteAvantMicro = "";
+const RELANCE_AUTO = false;  // la relance fait un « bip » à chaque fois sur Android : désactivée
 let microVoulu = false;      // vrai tant que l'utilisateur n'a pas arrêté le micro lui-même
 let dernierSonMicro = 0;
 
-if (SpeechRecognition) {
+// ------------------------------------------------------------
+// MICRO PAR ENREGISTREMENT (méthode principale)
+// On enregistre la voix, puis le relais la fait transcrire par une IA.
+// Avantages : aucun « bip », les pauses ne coupent rien, et ça fonctionne
+// dans tous les navigateurs (Brave compris) et sur iPhone.
+// ------------------------------------------------------------
+const MICRO_ENREGISTREMENT = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+const DUREE_MAX_MICRO = 90; // secondes
+let envoyerApresTranscription = false;
+let enregistreur = null, fluxMicro = null, morceauxAudio = [], minuterieMicro = null;
+
+function etatMicro(etat) { // "repos" | "ecoute" | "transcription"
+  micBtn.classList.toggle("recording", etat === "ecoute");
+  micBtn.disabled = etat === "transcription";
+  micBtn.textContent = etat === "ecoute" ? "⏹" : etat === "transcription" ? "…" : "🎤";
+  micBtn.title = etat === "ecoute" ? "Touche pour arrêter" : "Parler";
+}
+function arreterEnregistrement() {
+  if (minuterieMicro) { clearTimeout(minuterieMicro); minuterieMicro = null; }
+  if (enregistreur && enregistreur.state !== "inactive") enregistreur.stop();
+}
+async function transcrire(blob) {
+  const base64 = await new Promise((resolve, reject) => {
+    const lecteur = new FileReader();
+    lecteur.onload = () => resolve(String(lecteur.result).split(",")[1] || "");
+    lecteur.onerror = reject;
+    lecteur.readAsDataURL(blob);
+  });
+  const rep = await fetch(GROQ_ENDPOINT + "/ecoute", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ audio: base64, mime: blob.type || "audio/webm", langue: "en" })
+  });
+  if (!rep.ok) {
+    let detail = "";
+    try { const j = await rep.json(); detail = (j.error && j.error.message) || ""; } catch (e) {}
+    throw new Error("erreur " + rep.status + (detail ? " : " + detail : ""));
+  }
+  const j = await rep.json();
+  return String(j.text || "").trim();
+}
+async function demarrerEnregistrement() {
+  try {
+    fluxMicro = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    addMessage("system-note", "🎤 Le micro est bloqué. Autorise le micro pour ce site dans les réglages de ton navigateur, puis réessaie.");
+    return;
+  }
+  morceauxAudio = [];
+  enregistreur = new MediaRecorder(fluxMicro);
+  enregistreur.ondataavailable = (ev) => { if (ev.data && ev.data.size) morceauxAudio.push(ev.data); };
+  enregistreur.onstop = async () => {
+    fluxMicro.getTracks().forEach(t => t.stop());
+    const blob = new Blob(morceauxAudio, { type: enregistreur.mimeType || "audio/webm" });
+    if (blob.size < 1500) { etatMicro("repos"); return; } // rien d'enregistré
+    etatMicro("transcription");
+    try {
+      const texte = await transcrire(blob);
+      if (texte) userInput.value = (userInput.value ? userInput.value.trim() + " " : "") + texte;
+      else addMessage("system-note", "🎤 Je n'ai rien entendu. Rapproche-toi du micro et réessaie.");
+    } catch (e) {
+      addMessage("system-note", "🎤 La transcription n'a pas fonctionné (" + e.message + "). Tu peux écrire ta réponse, ou te servir du micro de ton clavier.");
+    }
+    etatMicro("repos");
+    userInput.focus();
+    if (envoyerApresTranscription) {
+      envoyerApresTranscription = false;
+      if (userInput.value.trim()) composer.requestSubmit();
+    }
+  };
+  enregistreur.start();
+  etatMicro("ecoute");
+  minuterieMicro = setTimeout(arreterEnregistrement, DUREE_MAX_MICRO * 1000);
+}
+
+if (MICRO_ENREGISTREMENT) {
+  micBtn.addEventListener("click", () => {
+    if (enregistreur && enregistreur.state === "recording") arreterEnregistrement();
+    else demarrerEnregistrement();
+  });
+} else if (SpeechRecognition) {
   recognizer = new SpeechRecognition();
   recognizer.lang = "en-US";
   recognizer.continuous = true;      // continue d'écouter pendant les pauses
@@ -1547,7 +1634,7 @@ if (SpeechRecognition) {
     micBtn.classList.remove("recording");
   };
   recognizer.onend = () => {
-    if (microVoulu && Date.now() - dernierSonMicro < 25000) {
+    if (RELANCE_AUTO && microVoulu && Date.now() - dernierSonMicro < 25000) {
       texteAvantMicro = userInput.value ? userInput.value.trim() + " " : "";
       try { recognizer.start(); return; } catch (e) {}
     }
