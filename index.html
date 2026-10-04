@@ -805,7 +805,7 @@ if (savedGender === "female") {
 // 3) La correction en français reste écrite : le tuteur dit déjà la bonne phrase en anglais.
 // ------------------------------------------------------------
 const ADRESSE_VOIX = GROQ_ENDPOINT + "/voix";
-const VOIX_IA = { male: "troy", female: "hannah" };
+const VOIX_IA = { male: "homme", female: "femme" };
 let lectureNo = 0;          // sert à annuler une lecture quand une nouvelle commence
 let audioEnCours = null;
 
@@ -840,11 +840,11 @@ function couperEnMorceaux(texte) {
   return morceaux.filter(Boolean);
 }
 
-async function chercherAudio(morceau, voix) {
+async function chercherAudio(morceau, voix, moteur) {
   const rep = await fetch(ADRESSE_VOIX, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ input: morceau, voice: voix })
+    body: JSON.stringify({ input: morceau, voice: voix, moteur: moteur })
   });
   if (!rep.ok) {
     let detail = "";
@@ -921,27 +921,48 @@ async function speak(text) {
   const cleanText = (text.replace(/\[Correction:.*?\]/gs, "").replace(/\[Say:.*?\]/gs, "").replace(/\[FR:.*?\]/gs, "") + (aDire ? " " + aDire : "")).replace(/[ \t]{2,}/g, " ").trim();
 
   avatarParle(true);
-  try {
-    if (!cleanText) throw new Error("rien à lire");
-    const voix = VOIX_IA[avatarGenderSelect.value] || VOIX_IA.male;
-    // On demande tous les morceaux en même temps, puis on les joue dans l'ordre.
-    const demandes = couperEnMorceaux(cleanText).map(m => chercherAudio(m, voix));
-    demandes.forEach(d => d.catch(() => {}));
-    for (const d of demandes) {
-      const donnees = await d;
+  const voix = VOIX_IA[avatarGenderSelect.value] || VOIX_IA.male;
+  const raisons = [];
+  let lu = false;
+
+  // 1) Gemini : tout le texte en une seule demande.
+  if (cleanText) {
+    try {
+      const donnees = await chercherAudio(cleanText, voix, "gemini");
       if (monNo !== lectureNo) return;
       await jouer(donnees);
-      if (monNo !== lectureNo) return;
-    }
-  } catch (e) {
-    console.log("[AngloShift] Voix d'IA indisponible, voix du téléphone utilisée :", e.message);
+      lu = true;
+    } catch (e) { raisons.push("Gemini : " + e.message); }
     if (monNo !== lectureNo) return;
-    if (!window._voixIASignalee && e.message !== "rien à lire") {
+  }
+
+  // 2) Groq : si Gemini n'a pas répondu, par morceaux de 190 caractères.
+  if (cleanText && !lu) {
+    try {
+      const demandes = couperEnMorceaux(cleanText).map(m => chercherAudio(m, voix, "groq"));
+      demandes.forEach(d => d.catch(() => {}));
+      for (const d of demandes) {
+        const donnees = await d;
+        if (monNo !== lectureNo) return;
+        await jouer(donnees);
+        if (monNo !== lectureNo) return;
+      }
+      lu = true;
+    } catch (e) { raisons.push("Groq : " + e.message); }
+    if (monNo !== lectureNo) return;
+  }
+
+  // 3) Voix du téléphone, en dernier recours.
+  if (cleanText && !lu) {
+    console.log("[AngloShift] Voix d'IA indisponible, voix du téléphone utilisée :", raisons.join(" | "));
+    if (!window._voixIASignalee) {
       window._voixIASignalee = true; // diagnostic temporaire, une seule fois par visite
-      addMessage("system-note", "🔧 Voix d'IA indisponible, voix du téléphone utilisée. Détail : " + e.message);
+      addMessage("system-note", "🔧 Voix d'IA indisponible, voix du téléphone utilisée. Détail : " + raisons.join(" | ").slice(0, 500));
     }
     if (audioEnCours) { try { audioEnCours.pause(); } catch (e2) {} audioEnCours = null; }
     await lireAvecTelephone(cleanText, "en");
+  } else if (raisons.length) {
+    console.log("[AngloShift] Gemini indisponible, Groq utilisé :", raisons.join(" | "));
   }
   if (monNo !== lectureNo) return;
   if (monNo === lectureNo) avatarParle(false);
