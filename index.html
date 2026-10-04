@@ -781,7 +781,7 @@ if (savedGender === "female") {
 // 1) Voix d'IA (Groq, par le relais) : une vraie voix d'homme ou de femme,
 //    la même sur tous les appareils. Anglais seulement.
 // 2) Si elle ne répond pas : voix du téléphone, comme avant.
-// 3) La correction en français est lue ensuite par une voix française du téléphone.
+// 3) La correction en français reste écrite : le tuteur dit déjà la bonne phrase en anglais.
 // ------------------------------------------------------------
 const ADRESSE_VOIX = GROQ_ENDPOINT + "/voix";
 const VOIX_IA = { male: "troy", female: "hannah" };
@@ -873,7 +873,6 @@ async function speak(text) {
   arreterLecture();
   const monNo = lectureNo;
 
-  const corrections = (text.match(/\[Correction:(.*?)\]/gs) || []).map(c => c.replace(/^\[Correction:/, "").replace(/\]$/, "").trim()).filter(Boolean);
   const cleanText = text.replace(/\[Correction:.*?\]/gs, "").replace(/\[FR:.*?\]/gs, "").replace(/[ \t]{2,}/g, " ").trim();
 
   avatarParle(true);
@@ -891,16 +890,11 @@ async function speak(text) {
     }
   } catch (e) {
     console.log("[AngloShift] Voix d'IA indisponible, voix du téléphone utilisée :", e.message);
-    if (!window._voixIASignalee && e.message !== "rien à lire") {
-      window._voixIASignalee = true; // une seule fois par visite
-      addMessage("system-note", "🔧 Voix d'IA indisponible, voix du téléphone utilisée. Détail : " + e.message);
-    }
     if (monNo !== lectureNo) return;
     if (audioEnCours) { try { audioEnCours.pause(); } catch (e2) {} audioEnCours = null; }
     await lireAvecTelephone(cleanText, "en");
   }
   if (monNo !== lectureNo) return;
-  if (corrections.length) await lireAvecTelephone("Correction. " + corrections.join(" "), "fr");
   if (monNo === lectureNo) avatarParle(false);
 }
 
