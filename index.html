@@ -655,8 +655,30 @@ function saveProgressLog(log) {
   try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(log)); }
   catch (e) { /* ignore if storage unavailable */ }
 }
+// Sépare une réponse du tuteur en trois : l'anglais (affiché et lu à voix haute),
+// les corrections et la traduction française. Tolère les oublis de l'IA :
+// crochet ouvrant manquant, crochet fermant manquant, « FR : » avec une espace.
+function decouperReponse(texte) {
+  const corrections = [], traductions = [];
+  let reste = String(texte || "").replace(/\[\s*Say\s*:[\s\S]*?(\]|$)/gi, " ");
+  const extraire = (etiquette, liste) => {
+    // 1) forme normale : [Etiquette: ...]   2) crochet fermant oublié : jusqu'au prochain crochet ou la fin
+    const avecCrochet = new RegExp("\\[\\s*" + etiquette + "\\s*:\\s*([\\s\\S]*?)(?:\\]|(?=\\[)|$)", "gi");
+    reste = reste.replace(avecCrochet, (m, contenu) => { if (contenu.trim()) liste.push(contenu.trim()); return " "; });
+    // 3) crochet ouvrant oublié : « Etiquette: ... ] » ou « Etiquette: ... » en début de ligne
+    const sansCrochet = new RegExp("(^|\\n)[ \\t]*" + etiquette + "\\s*:\\s*([^\\]\\n]*)\\]?", "gi");
+    reste = reste.replace(sansCrochet, (m, debut, contenu) => { if (contenu.trim()) liste.push(contenu.trim()); return debut; });
+  };
+  extraire("Correction", corrections);
+  extraire("FR", traductions);
+  // 4) « FR: ... » collé à la fin d'une phrase, sans crochet ni retour de ligne
+  reste = reste.replace(/([.!?"”»])\s+FR\s*:\s*([^\]\n]*)\]?/g, (m, fin, contenu) => { if (contenu.trim()) traductions.push(contenu.trim()); return fin; });
+  const principal = reste.replace(/[\[\]]/g, " ").replace(/[ \t]{2,}/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  return { principal, corrections, traductions };
+}
+
 function logCorrections(aiText, scenarioKey) {
-  const matches = [...aiText.matchAll(/\[Correction:(.*?)\]/gs)].map(m => m[1].trim());
+  const matches = decouperReponse(aiText).corrections;
   if (matches.length === 0) return;
   const log = getProgressLog();
   const now = new Date().toISOString();
@@ -714,9 +736,9 @@ function addMessage(role, text) {
     // la correction (s'il y en a une) et la traduction française
     // (toujours demandée à l'IA) — chacun rendu différemment pour que
     // ce soit clair d'un coup d'oeil.
-    const corrections = [...text.matchAll(/\[Correction:(.*?)\]/gs)].map(m => m[1].trim());
-    const translations = [...text.matchAll(/\[FR:(.*?)\]/gs)].map(m => m[1].trim());
-    const mainText = text.replace(/\[Correction:.*?\]/gs, "").replace(/\[Say:.*?\]/gs, "").replace(/\[FR:.*?\]/gs, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+    const morceaux = decouperReponse(text);
+    const corrections = morceaux.corrections, translations = morceaux.traductions;
+    const mainText = morceaux.principal;
 
     const mainSpan = document.createElement("div");
     mainSpan.className = "msg-main";
@@ -1021,8 +1043,8 @@ async function speak(text) {
   const monNo = lectureNo;
 
   // La correction dite à voix haute : une courte phrase en anglais, lue par la même voix que le tuteur.
-  const aDire = [...text.matchAll(/\[Say:(.*?)\]/gs)].map(m => m[1].trim()).filter(Boolean).join(" ");
-  const cleanText = (text.replace(/\[Correction:.*?\]/gs, "").replace(/\[Say:.*?\]/gs, "").replace(/\[FR:.*?\]/gs, "") + (aDire ? " " + aDire : "")).replace(/[ \t]{2,}/g, " ").trim();
+  // On lit seulement la partie anglaise : ni la correction, ni la traduction française.
+  const cleanText = decouperReponse(text).principal.replace(/\s+/g, " ").trim();
 
   avatarParle(true);
   const voix = VOIX_IA[avatarGenderSelect.value] || VOIX_IA.male;
