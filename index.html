@@ -787,8 +787,11 @@ function speak(text) {
 
   const chosen = englishVoices[voiceSelect.value] || englishVoices[0];
   utterance.voice = chosen;
-  utterance.lang = chosen.lang;
+  utterance.lang = chosen.lang.replace("_", "-"); // Android écrit "en_US", la norme veut "en-US"
   utterance.rate = 0.95;
+  // Les téléphones n'offrent souvent qu'une seule voix par langue : on la rend
+  // plus grave pour le tuteur et un peu plus aiguë pour la tutrice.
+  utterance.pitch = (avatarGenderSelect.value === "female") ? 1.1 : 0.6;
 
   utterance.onstart = () => {
     avatarBar.classList.add("talking");
@@ -803,8 +806,12 @@ function speak(text) {
     avatarStatus.textContent = "à l'écoute";
   };
 
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utterance);
+  // Sur Android, parler tout de suite après un cancel() est souvent ignoré :
+  // on annule seulement si quelque chose joue, puis on attend un court instant.
+  const synth = window.speechSynthesis;
+  window._derniereLecture = utterance; // évite que le navigateur l'oublie avant la fin
+  if (synth.speaking || synth.pending) synth.cancel();
+  setTimeout(() => { try { synth.resume(); } catch (e) {} synth.speak(utterance); }, 150);
 }
 
 const examTimer = document.getElementById("examTimer");
@@ -995,38 +1002,56 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 let recognizing = false;
 let recognizer = null;
 
+const MICRO_AIDE = "🎤 Le micro de l'application ne fonctionne pas dans ce navigateur (c'est le cas de Brave). Deux solutions : ouvre AngloShift dans Google Chrome, ou touche la case de texte et sers-toi du micro de ton clavier.";
+let texteDicte = "";
+
 if (SpeechRecognition) {
   recognizer = new SpeechRecognition();
   recognizer.lang = "en-US";
-  recognizer.interimResults = false;
+  recognizer.continuous = true;      // continue d'écouter pendant les pauses
+  recognizer.interimResults = true;  // affiche les mots au fur et à mesure
   recognizer.maxAlternatives = 1;
 
   recognizer.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
-    userInput.value = transcript;
+    let provisoire = "";
+    for (let k = event.resultIndex; k < event.results.length; k++) {
+      const t = event.results[k][0].transcript;
+      if (event.results[k].isFinal) texteDicte += t + " "; else provisoire += t;
+    }
+    userInput.value = (texteDicte + provisoire).replace(/\s+/g, " ").trim();
   };
   recognizer.onend = () => {
     recognizing = false;
     micBtn.classList.remove("recording");
   };
-  recognizer.onerror = () => {
+  recognizer.onerror = (event) => {
     recognizing = false;
     micBtn.classList.remove("recording");
-    addMessage("system-note", "⚠ La reconnaissance vocale n'a pas fonctionné (courant sur mobile). Écris ta réponse à la place.");
+    if (event.error === "no-speech" || event.error === "aborted") return;
+    if (event.error === "not-allowed") {
+      addMessage("system-note", "🎤 Le micro est bloqué. Autorise le micro pour ce site dans les réglages de ton navigateur, puis réessaie.");
+    } else {
+      addMessage("system-note", MICRO_AIDE);
+    }
   };
 
   micBtn.addEventListener("click", () => {
     if (recognizing) {
-      recognizer.stop();
+      recognizer.stop(); // touche le micro une 2e fois pour arrêter
       return;
     }
-    recognizing = true;
-    micBtn.classList.add("recording");
-    recognizer.start();
+    texteDicte = userInput.value ? userInput.value.trim() + " " : "";
+    try {
+      recognizer.start();
+      recognizing = true;
+      micBtn.classList.add("recording");
+    } catch (e) {
+      addMessage("system-note", MICRO_AIDE);
+    }
   });
 } else {
-  micBtn.disabled = true;
-  micBtn.title = "Reconnaissance vocale non supportée par ce navigateur";
+  micBtn.title = "Micro non pris en charge par ce navigateur";
+  micBtn.addEventListener("click", () => addMessage("system-note", MICRO_AIDE));
 }
 
 // Init
