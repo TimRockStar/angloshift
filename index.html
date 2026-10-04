@@ -458,7 +458,7 @@
 // ============================================================
 
 const GROQ_ENDPOINT = "https://relais-groq.smartgrocer.workers.dev"; // relais : aucune clé dans ce fichier
-const GROQ_MODEL = "llama-3.3-70b-versatile"; // vérifie sur console.groq.com/docs/models si un modèle plus récent est recommandé
+const GROQ_MODEL = "qwen/qwen3.8-27b"; // même modèle que SmartGrocer — // vérifie sur console.groq.com/docs/models si un modèle plus récent est recommandé
 
 const SCENARIOS = {
   interview: {
@@ -925,6 +925,7 @@ async function callGroq() {
     },
     body: JSON.stringify({
       model: GROQ_MODEL,
+      reasoning_effort: 'none',
       messages: history,
       temperature: 0.7,
       max_tokens: 300
@@ -936,7 +937,7 @@ async function callGroq() {
     throw new Error("Groq API error (" + response.status + "): " + errText);
   }
   const data = await response.json();
-  return data.choices[0].message.content;
+  return (data.choices[0].message.content || "").replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 }
 
 composer.addEventListener("submit", async (e) => {
