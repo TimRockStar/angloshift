@@ -536,12 +536,14 @@ const TRANSLATION_INSTRUCTIONS = `
 
 IMPORTANT — TRANSLATION: At the very end of EVERY one of your messages, without exception, add a French translation of your own English message like this, on its own line: [FR: traduction complète en français ici]. This is mandatory for every single message you send, even short ones — the learner needs it to check their understanding. If you are also giving a mistake correction, put [Correction: ...] first, then [FR: ...] after it.
 
-IMPORTANT — SPOKEN PRONUNCIATION OF CORRECTIONS: Whenever you give a [Correction: ...], you must ALSO naturally say the corrected English phrase as a normal part of your English reply (outside the brackets), not only inside the bracket. Example: if the learner said "I work here since two years" and you correct that to "I have been working here for two years", your visible English reply should actually contain the sentence "I have been working here for two years" somewhere (e.g. "Great, so you have been working here for two years — what does a typical day look like?"). This matters because the app reads your English reply out loud with real English pronunciation, and repeating the corrected phrase is how the learner hears the correct pronunciation.`;
+IMPORTANT — SPOKEN PRONUNCIATION OF CORRECTIONS: Whenever you give a [Correction: ...], you must ALSO naturally say the corrected English phrase as a normal part of your English reply (outside the brackets), not only inside the bracket. Example: if the learner said "I work here since two years" and you correct that to "I have been working here for two years", your visible English reply should actually contain the sentence "I have been working here for two years" somewhere (e.g. "Great, so you have been working here for two years — what does a typical day look like?"). This matters because the app reads your English reply out loud with real English pronunciation, and repeating the corrected phrase is how the learner hears the correct pronunciation.
+
+IMPORTANT — REPEAT AFTER ME: Whenever you give a [Correction: ...], end your English reply (before the brackets) with exactly this pattern: Repeat after me: "the full corrected English sentence". Do not ask any other question in that same message; wait for the learner to repeat. In the learner's next message: if they repeated the sentence correctly (ignore capital letters, punctuation and tiny typos), praise them in a few words and then continue the conversation where it left off, asking your next question. If it is still wrong, give the correct sentence once more with a new "Repeat after me:" — but only one extra try; after that second attempt, encourage them and move on with the conversation no matter what. Never ask the learner to repeat when they made no mistake.`;
 
 const EXAM_DURATION_SECONDS = 8 * 60;
 const EXAM_INSTRUCTIONS = `
 
-IMPORTANT — MOCK EXAM MODE: Conduct this as a complete, structured mock interview of about 6 realistic questions (experience, availability, safety attitude, teamwork, why this job, a question about a past challenge), asking ONE question at a time and waiting for the answer before moving to the next. Do not end the interview yourself — the candidate or a timer will end it. Keep count of how many questions you've asked internally.`;
+IMPORTANT — MOCK EXAM MODE: Conduct this as a complete, structured mock interview of about 6 realistic questions (experience, availability, safety attitude, teamwork, why this job, a question about a past challenge), asking ONE question at a time and waiting for the answer before moving to the next. Do not end the interview yourself — the candidate or a timer will end it. Keep count of how many questions you've asked internally. During this mock exam, do NOT use "Repeat after me": still give the [Correction: ...] in brackets, but go straight on to the next interview question so the timed interview keeps moving.`;
 
 const chatWindow = document.getElementById("chatWindow");
 const composer = document.getElementById("composer");
@@ -840,6 +842,13 @@ function couperEnMorceaux(texte) {
   return morceaux.filter(Boolean);
 }
 
+// Sépare la première phrase du reste, pour que la voix commence sans attendre tout le texte.
+function couperPourDemarrerVite(texte) {
+  if (texte.length < 110) return [texte];
+  const m = texte.match(/^(.{15,160}?[.!?])\s+(\S.*)$/s);
+  return m ? [m[1].trim(), m[2].trim()] : [texte];
+}
+
 async function chercherAudio(morceau, voix, moteur) {
   const rep = await fetch(ADRESSE_VOIX, {
     method: "POST",
@@ -925,21 +934,30 @@ async function speak(text) {
   const raisons = [];
   let lu = false;
 
-  // 1) Gemini : tout le texte en une seule demande.
+  // 1) Gemini. Pour que la voix parte vite, on demande la première phrase à part
+  //    (courte, donc prête rapidement) et le reste en même temps, puis on joue dans l'ordre.
+  // 2) Groq prend la relève pour ce qui reste si Gemini ne répond pas (morceaux de 190 caractères).
+  let reste = cleanText;
   if (cleanText) {
+    const pieces = couperPourDemarrerVite(cleanText);
+    const demandes = pieces.map(m => chercherAudio(m, voix, "gemini"));
+    demandes.forEach(d => d.catch(() => {}));
     try {
-      const donnees = await chercherAudio(cleanText, voix, "gemini");
-      if (monNo !== lectureNo) return;
-      await jouer(donnees);
-      lu = true;
+      for (let k = 0; k < pieces.length; k++) {
+        const donnees = await demandes[k];
+        if (monNo !== lectureNo) return;
+        await jouer(donnees);
+        if (monNo !== lectureNo) return;
+        reste = pieces.slice(k + 1).join(" ");
+      }
     } catch (e) { raisons.push("Gemini : " + e.message); }
     if (monNo !== lectureNo) return;
   }
+  lu = !reste;
 
-  // 2) Groq : si Gemini n'a pas répondu, par morceaux de 190 caractères.
-  if (cleanText && !lu) {
+  if (reste) {
     try {
-      const demandes = couperEnMorceaux(cleanText).map(m => chercherAudio(m, voix, "groq"));
+      const demandes = couperEnMorceaux(reste).map(m => chercherAudio(m, voix, "groq"));
       demandes.forEach(d => d.catch(() => {}));
       for (const d of demandes) {
         const donnees = await d;
@@ -953,14 +971,14 @@ async function speak(text) {
   }
 
   // 3) Voix du téléphone, en dernier recours.
-  if (cleanText && !lu) {
+  if (reste && !lu) {
     console.log("[AngloShift] Voix d'IA indisponible, voix du téléphone utilisée :", raisons.join(" | "));
     if (!window._voixIASignalee) {
       window._voixIASignalee = true; // diagnostic temporaire, une seule fois par visite
       addMessage("system-note", "🔧 Voix d'IA indisponible, voix du téléphone utilisée. Détail : " + raisons.join(" | ").slice(0, 500));
     }
     if (audioEnCours) { try { audioEnCours.pause(); } catch (e2) {} audioEnCours = null; }
-    await lireAvecTelephone(cleanText, "en");
+    await lireAvecTelephone(reste, "en");
   } else if (raisons.length) {
     console.log("[AngloShift] Gemini indisponible, Groq utilisé :", raisons.join(" | "));
   }
