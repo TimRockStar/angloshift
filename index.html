@@ -825,7 +825,11 @@ async function chercherAudio(morceau, voix) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ input: morceau, voice: voix })
   });
-  if (!rep.ok) throw new Error("voix " + rep.status);
+  if (!rep.ok) {
+    let detail = "";
+    try { const j = await rep.json(); detail = (j.error && j.error.message) || JSON.stringify(j); } catch (e) {}
+    throw new Error("erreur " + rep.status + (detail ? " : " + detail : ""));
+  }
   const blob = await rep.blob();
   if (!blob.size || (blob.type && blob.type.indexOf("json") >= 0)) throw new Error("voix vide");
   return URL.createObjectURL(blob);
@@ -887,6 +891,10 @@ async function speak(text) {
     }
   } catch (e) {
     console.log("[AngloShift] Voix d'IA indisponible, voix du téléphone utilisée :", e.message);
+    if (!window._voixIASignalee && e.message !== "rien à lire") {
+      window._voixIASignalee = true; // une seule fois par visite
+      addMessage("system-note", "🔧 Voix d'IA indisponible, voix du téléphone utilisée. Détail : " + e.message);
+    }
     if (monNo !== lectureNo) return;
     if (audioEnCours) { try { audioEnCours.pause(); } catch (e2) {} audioEnCours = null; }
     await lireAvecTelephone(cleanText, "en");
@@ -1085,7 +1093,7 @@ let recognizing = false;
 let recognizer = null;
 
 const MICRO_AIDE = "🎤 Le micro de l'application ne fonctionne pas dans ce navigateur (c'est le cas de Brave). Deux solutions : ouvre AngloShift dans Google Chrome, ou touche la case de texte et sers-toi du micro de ton clavier.";
-let texteDicte = "";
+let texteAvantMicro = "";
 
 if (SpeechRecognition) {
   recognizer = new SpeechRecognition();
@@ -1095,12 +1103,27 @@ if (SpeechRecognition) {
   recognizer.maxAlternatives = 1;
 
   recognizer.onresult = (event) => {
+    // Sur Android, chaque résultat répète souvent tout ce qui a déjà été dit.
+    // On reconstruit donc la phrase à chaque fois, en écartant ces répétitions.
+    const norm = t => t.toLowerCase().replace(/\s+/g, " ").trim();
+    const finals = [];
     let provisoire = "";
-    for (let k = event.resultIndex; k < event.results.length; k++) {
-      const t = event.results[k][0].transcript;
-      if (event.results[k].isFinal) texteDicte += t + " "; else provisoire += t;
+    for (let k = 0; k < event.results.length; k++) {
+      const t = event.results[k][0].transcript.trim();
+      if (!t) continue;
+      if (event.results[k].isFinal) {
+        const dernier = finals[finals.length - 1];
+        if (dernier !== undefined && norm(t).startsWith(norm(dernier))) finals[finals.length - 1] = t;
+        else if (dernier !== undefined && norm(dernier).startsWith(norm(t))) { /* déjà là */ }
+        else finals.push(t);
+      } else provisoire = t;
     }
-    userInput.value = (texteDicte + provisoire).replace(/\s+/g, " ").trim();
+    let dit = finals.join(" ");
+    if (provisoire) {
+      if (norm(provisoire).startsWith(norm(dit))) dit = provisoire;
+      else if (!norm(dit).endsWith(norm(provisoire))) dit += " " + provisoire;
+    }
+    userInput.value = (texteAvantMicro + dit).replace(/\s+/g, " ").trim();
   };
   recognizer.onend = () => {
     recognizing = false;
@@ -1122,7 +1145,7 @@ if (SpeechRecognition) {
       recognizer.stop(); // touche le micro une 2e fois pour arrêter
       return;
     }
-    texteDicte = userInput.value ? userInput.value.trim() + " " : "";
+    texteAvantMicro = userInput.value ? userInput.value.trim() + " " : "";
     try {
       recognizer.start();
       recognizing = true;
