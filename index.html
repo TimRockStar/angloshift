@@ -995,7 +995,8 @@ async function speak(text) {
   // 2) Groq prend la relève pour ce qui reste si Gemini ne répond pas (morceaux de 190 caractères).
   let reste = cleanText;
   if (cleanText) {
-    const pieces = couperPourDemarrerVite(cleanText);
+    // Une seule demande par réponse : le forfait gratuit de Gemini en permet 3 par minute.
+    const pieces = [cleanText];
     const demandes = pieces.map(m => chercherAudio(m, voix, "gemini"));
     demandes.forEach(d => d.catch(() => {}));
     try {
