@@ -1777,6 +1777,17 @@ const sessionTemps = document.getElementById("sessionTemps");
 const sessionEvalBtn = document.getElementById("sessionEvalBtn");
 let session = null; // { etape, debut, minuterie, messages, enEvaluation, avisDonne }
 
+// La prochaine étape à faire : dans le niveau de l'élève d'abord, sinon dans les autres niveaux.
+function prochaineEtape() {
+  const p = lireParcours();
+  const ordre = [lireNiveau() || "debutant", "debutant", "intermediaire", "avance"];
+  for (const niv of ordre) {
+    const e = PARCOURS[niv].find(x => !p.terminees[x.id]);
+    if (e) return e;
+  }
+  return null;
+}
+
 // ---------- Quand le tuteur termine la situation : on propose la suite ----------
 function afficherFinDeSituation() {
   const dansEtape = !!session;
@@ -1797,8 +1808,16 @@ function afficherFinDeSituation() {
     bouton("📝 Passer à l'évaluation", () => sessionEvalBtn.click());
     bouton("Continuer à pratiquer", () => { note.remove(); userInput.focus(); }, true);
   } else {
-    bouton("🔁 Recommencer cette situation", () => resetConversation(currentScenario));
-    bouton("🎓 Voir mon parcours", () => { afficherParcours(); parcoursModal.classList.add("open"); }, true);
+    // « Continuer » : la prochaine étape à faire dans le parcours, puis la situation suivante de la liste.
+    const etape = prochaineEtape();
+    if (etape) bouton("▶ Continuer : étape " + etape.numero + " du parcours, « " + etape.titre + " »", () => demarrerEtape(etape));
+    const options = [...scenarioSelect.options].filter(o => o.value !== PERSO_NOUVEAU);
+    const ici = options.findIndex(o => o.value === currentScenario);
+    const suivante = ici >= 0 ? options[(ici + 1) % options.length] : null;
+    if (suivante && suivante.value !== currentScenario) {
+      bouton("➡ Situation suivante : " + suivante.textContent, () => { scenarioSelect.value = suivante.value; resetConversation(suivante.value); }, !!etape);
+    }
+    bouton("🔁 Recommencer cette situation", () => resetConversation(currentScenario), true);
   }
   chatWindow.scrollTop = chatWindow.scrollHeight;
 }
@@ -1952,7 +1971,7 @@ function terminerEtape(reply) {
     if (suivante) bouton("▶ Étape suivante : " + suivante.titre, () => demarrerEtape(suivante));
     else bouton("🎓 Voir mon parcours", () => { afficherParcours(); parcoursModal.classList.add("open"); });
   } else {
-    bouton("🔁 Refaire cette étape", () => demarrerEtape(e));
+    bouton("🔁 Refaire cette étape maintenant", () => demarrerEtape(e));
     bouton("🎓 Voir mon parcours", () => { afficherParcours(); parcoursModal.classList.add("open"); }, true);
   }
   chatWindow.scrollTop = chatWindow.scrollHeight;
