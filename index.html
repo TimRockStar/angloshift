@@ -776,42 +776,124 @@ if (savedGender === "female") {
   applyAvatarGender("female", { switchVoice: false });
 }
 
-function speak(text) {
+// ------------------------------------------------------------
+// Lecture à voix haute.
+// 1) Voix d'IA (Groq, par le relais) : une vraie voix d'homme ou de femme,
+//    la même sur tous les appareils. Anglais seulement.
+// 2) Si elle ne répond pas : voix du téléphone, comme avant.
+// 3) La correction en français est lue ensuite par une voix française du téléphone.
+// ------------------------------------------------------------
+const ADRESSE_VOIX = GROQ_ENDPOINT + "/voix";
+const VOIX_IA = { male: "troy", female: "hannah" };
+let lectureNo = 0;          // sert à annuler une lecture quand une nouvelle commence
+let audioEnCours = null;
+
+function avatarParle(oui) {
+  avatarBar.classList.toggle("talking", oui);
+  avatarStatus.textContent = oui ? "en train de parler" : "à l'écoute";
+}
+
+function arreterLecture() {
+  lectureNo++;
+  if (audioEnCours) { try { audioEnCours.pause(); } catch (e) {} audioEnCours = null; }
+  if ("speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
+  avatarParle(false);
+}
+
+// Coupe le texte en morceaux de 190 caractères au plus, à la fin des phrases si possible.
+function couperEnMorceaux(texte) {
+  const phrases = texte.match(/[^.!?]+[.!?]*\s*/g) || [texte];
+  const morceaux = [];
+  let courant = "";
+  phrases.forEach(ph => {
+    while (ph.length > 190) {
+      const coupe = ph.lastIndexOf(" ", 190) > 40 ? ph.lastIndexOf(" ", 190) : 190;
+      if (courant.trim()) { morceaux.push(courant.trim()); courant = ""; }
+      morceaux.push(ph.slice(0, coupe).trim());
+      ph = ph.slice(coupe);
+    }
+    if ((courant + ph).length > 190) { morceaux.push(courant.trim()); courant = ph; }
+    else courant += ph;
+  });
+  if (courant.trim()) morceaux.push(courant.trim());
+  return morceaux.filter(Boolean);
+}
+
+async function chercherAudio(morceau, voix) {
+  const rep = await fetch(ADRESSE_VOIX, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ input: morceau, voice: voix })
+  });
+  if (!rep.ok) throw new Error("voix " + rep.status);
+  const blob = await rep.blob();
+  if (!blob.size || (blob.type && blob.type.indexOf("json") >= 0)) throw new Error("voix vide");
+  return URL.createObjectURL(blob);
+}
+
+function jouer(url) {
+  return new Promise((resolve, reject) => {
+    const a = new Audio(url);
+    audioEnCours = a;
+    a.onended = () => { URL.revokeObjectURL(url); resolve(); };
+    a.onerror = () => reject(new Error("lecture audio"));
+    a.play().catch(reject);
+  });
+}
+
+// Voix du téléphone (secours pour l'anglais, et voix française pour les corrections)
+function lireAvecTelephone(texte, langue) {
+  return new Promise(resolve => {
+    if (!("speechSynthesis" in window) || !texte) return resolve();
+    const u = new SpeechSynthesisUtterance(texte);
+    if (langue === "fr") {
+      const voixFr = speechSynthesis.getVoices().filter(v => v.lang && v.lang.toLowerCase().startsWith("fr"));
+      const v = voixFr.find(x => /fr[-_]ca/i.test(x.lang)) || voixFr[0];
+      if (!v) return resolve(); // pas de voix française : la correction reste écrite
+      u.voice = v; u.lang = v.lang.replace("_", "-");
+    } else {
+      if (englishVoices.length === 0) return resolve();
+      const chosen = englishVoices[voiceSelect.value] || englishVoices[0];
+      u.voice = chosen; u.lang = chosen.lang.replace("_", "-");
+      u.pitch = (avatarGenderSelect.value === "female") ? 1.1 : 0.6;
+    }
+    u.rate = 0.95;
+    u.onend = resolve; u.onerror = resolve;
+    window._derniereLecture = u;
+    setTimeout(() => { try { speechSynthesis.resume(); } catch (e) {} speechSynthesis.speak(u); }, 150);
+  });
+}
+
+async function speak(text) {
   if (!ttsToggle.checked) return;
-  if (!("speechSynthesis" in window)) return;
-  if (englishVoices.length === 0) return; // évite de lire avec une voix française par défaut
+  arreterLecture();
+  const monNo = lectureNo;
 
-  // Strip the bracketed French corrections before reading aloud in English
+  const corrections = (text.match(/\[Correction:(.*?)\]/gs) || []).map(c => c.replace(/^\[Correction:/, "").replace(/\]$/, "").trim()).filter(Boolean);
   const cleanText = text.replace(/\[Correction:.*?\]/gs, "").replace(/\[FR:.*?\]/gs, "").replace(/[ \t]{2,}/g, " ").trim();
-  const utterance = new SpeechSynthesisUtterance(cleanText);
 
-  const chosen = englishVoices[voiceSelect.value] || englishVoices[0];
-  utterance.voice = chosen;
-  utterance.lang = chosen.lang.replace("_", "-"); // Android écrit "en_US", la norme veut "en-US"
-  utterance.rate = 0.95;
-  // Les téléphones n'offrent souvent qu'une seule voix par langue : on la rend
-  // plus grave pour le tuteur et un peu plus aiguë pour la tutrice.
-  utterance.pitch = (avatarGenderSelect.value === "female") ? 1.1 : 0.6;
-
-  utterance.onstart = () => {
-    avatarBar.classList.add("talking");
-    avatarStatus.textContent = "en train de parler";
-  };
-  utterance.onend = () => {
-    avatarBar.classList.remove("talking");
-    avatarStatus.textContent = "à l'écoute";
-  };
-  utterance.onerror = () => {
-    avatarBar.classList.remove("talking");
-    avatarStatus.textContent = "à l'écoute";
-  };
-
-  // Sur Android, parler tout de suite après un cancel() est souvent ignoré :
-  // on annule seulement si quelque chose joue, puis on attend un court instant.
-  const synth = window.speechSynthesis;
-  window._derniereLecture = utterance; // évite que le navigateur l'oublie avant la fin
-  if (synth.speaking || synth.pending) synth.cancel();
-  setTimeout(() => { try { synth.resume(); } catch (e) {} synth.speak(utterance); }, 150);
+  avatarParle(true);
+  try {
+    if (!cleanText) throw new Error("rien à lire");
+    const voix = VOIX_IA[avatarGenderSelect.value] || VOIX_IA.male;
+    // On demande tous les morceaux en même temps, puis on les joue dans l'ordre.
+    const demandes = couperEnMorceaux(cleanText).map(m => chercherAudio(m, voix));
+    demandes.forEach(d => d.catch(() => {}));
+    for (const d of demandes) {
+      const url = await d;
+      if (monNo !== lectureNo) return;
+      await jouer(url);
+      if (monNo !== lectureNo) return;
+    }
+  } catch (e) {
+    console.log("[AngloShift] Voix d'IA indisponible, voix du téléphone utilisée :", e.message);
+    if (monNo !== lectureNo) return;
+    if (audioEnCours) { try { audioEnCours.pause(); } catch (e2) {} audioEnCours = null; }
+    await lireAvecTelephone(cleanText, "en");
+  }
+  if (monNo !== lectureNo) return;
+  if (corrections.length) await lireAvecTelephone("Correction. " + corrections.join(" "), "fr");
+  if (monNo === lectureNo) avatarParle(false);
 }
 
 const examTimer = document.getElementById("examTimer");
