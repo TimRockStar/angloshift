@@ -308,6 +308,11 @@
   }
   .modal h2 { margin-top: 0; font-size: 1.1rem; color: var(--navy); }
   .modal p { font-size: 0.85rem; color: var(--grey); line-height: 1.4; }
+  .niveau-btn { margin: 4px 0 0 6px; font-size: 0.75rem; padding: 3px 9px; border-radius: 99px; border: 1px solid #d7dde5; background: var(--accent-light); color: var(--navy); cursor: pointer; font-family: inherit; }
+  .niveau-choix { display: grid; gap: 8px; margin: 12px 0; }
+  .niveau-choix button { text-align: left; padding: 10px 12px; background: #f3f5f8; color: var(--text); font-weight: 400; line-height: 1.3; }
+  .niveau-choix button b { display: block; color: var(--navy); }
+  .niveau-choix button.actif { outline: 2px solid var(--accent); background: var(--accent-light); }
   .modal textarea { min-height: 90px; resize: vertical; font-family: inherit; }
   .perso-ligne { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); font-size: 0.85rem; }
   .perso-ligne button { padding: 4px 10px; font-size: 0.75rem; background: #fbe4e1; color: #8f2f26; }
@@ -424,6 +429,7 @@
       <option value="male">👨 Tuteur (homme)</option>
       <option value="female">👩 Tutrice (femme)</option>
     </select>
+    <button type="button" id="niveauBtn" class="niveau-btn">Niveau : à choisir</button>
   </div>
 </div>
 
@@ -440,6 +446,23 @@
   <button type="button" id="micBtn" title="Parler (expérimental)">🎤</button>
   <button type="submit" id="sendBtn">Envoyer</button>
 </form>
+
+<!-- Fenêtre : niveau d'anglais -->
+<div class="modal-backdrop" id="niveauModal">
+  <div class="modal" style="max-width: 480px;">
+    <h2>🎯 Ton niveau d'anglais</h2>
+    <p>Le tuteur adapte sa façon de parler à ton niveau. Tu peux le choisir toi-même, ou laisser le tuteur l'évaluer en cinq questions.</p>
+    <button class="primary" id="niveauEvaluer" style="width:100%;">📝 Évaluer mon niveau (5 questions)</button>
+    <div class="niveau-choix" id="niveauChoix">
+      <button type="button" data-niveau="debutant"><b>Débutant</b>Je connais quelques mots et des phrases simples.</button>
+      <button type="button" data-niveau="intermediaire"><b>Intermédiaire</b>Je me débrouille, mais je cherche mes mots et je fais des erreurs.</button>
+      <button type="button" data-niveau="avance"><b>Avancé</b>Je parle assez facilement et je veux un anglais plus naturel.</button>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" id="niveauFermer">Fermer</button>
+    </div>
+  </div>
+</div>
 
 <!-- Fenêtre : créer un scénario personnalisé -->
 <div class="modal-backdrop" id="persoModal">
@@ -539,6 +562,39 @@ IMPORTANT — TRANSLATION: At the very end of EVERY one of your messages, withou
 IMPORTANT — SPOKEN PRONUNCIATION OF CORRECTIONS: Whenever you give a [Correction: ...], you must ALSO naturally say the corrected English phrase as a normal part of your English reply (outside the brackets), not only inside the bracket. Example: if the learner said "I work here since two years" and you correct that to "I have been working here for two years", your visible English reply should actually contain the sentence "I have been working here for two years" somewhere (e.g. "Great, so you have been working here for two years — what does a typical day look like?"). This matters because the app reads your English reply out loud with real English pronunciation, and repeating the corrected phrase is how the learner hears the correct pronunciation.
 
 IMPORTANT — REPEAT AFTER ME: Whenever you give a [Correction: ...], end your English reply (before the brackets) with exactly this pattern: Repeat after me: "the full corrected English sentence". Do not ask any other question in that same message; wait for the learner to repeat. In the learner's next message: if they repeated the sentence correctly (ignore capital letters, punctuation and tiny typos), praise them in a few words and then continue the conversation where it left off, asking your next question. If it is still wrong, give the correct sentence once more with a new "Repeat after me:" — but only one extra try; after that second attempt, encourage them and move on with the conversation no matter what. Never ask the learner to repeat when they made no mistake.`;
+
+// ------------------------------------------------------------
+// Niveau de l'élève : gardé sur l'appareil, ajouté aux consignes du tuteur.
+// ------------------------------------------------------------
+const NIVEAU_CLE = "angloshift_niveau";
+const NIVEAUX = {
+  debutant: {
+    nom: "Débutant",
+    consigne: `
+
+LEARNER LEVEL — BEGINNER (this overrides any other level mentioned above): Use very short sentences (about 10 words or fewer), only the most common everyday words, and simple tenses. Ask one simple question at a time. No idioms and no slang. Be extra encouraging. Correct only the single most important mistake in each message.`
+  },
+  intermediaire: {
+    nom: "Intermédiaire",
+    consigne: `
+
+LEARNER LEVEL — INTERMEDIATE (this overrides any other level mentioned above): Use clear everyday English with normal-length sentences. Introduce a useful new word or expression from time to time. Correct at most the two most important mistakes in each message.`
+  },
+  avance: {
+    nom: "Avancé",
+    consigne: `
+
+LEARNER LEVEL — ADVANCED (this overrides any other level mentioned above): Speak natural, fluent English as you would with a native-speaking adult, including common idioms and workplace expressions. Ask more open and demanding questions. Also correct subtle problems: word choice, register and sentences that are correct but do not sound natural.`
+  }
+};
+function lireNiveau() {
+  try { const n = localStorage.getItem(NIVEAU_CLE); return NIVEAUX[n] ? n : null; } catch (e) { return null; }
+}
+
+const EVALUATION = "__evaluation";
+const PROMPT_EVALUATION = `You are a friendly English placement interviewer for a French-Canadian adult learner. Your only job is to find the learner's level. Ask exactly 5 questions, ONE at a time, each a little harder than the one before: (1) a very simple personal question, (2) a question about daily routine or work, (3) a question about a past event, (4) a question asking for an opinion with a reason, (5) a hypothetical question ("What would you do if..."). Keep each question short. Do NOT correct mistakes and do NOT ask the learner to repeat anything during this placement. After each of your questions, add a French translation on its own line like this: [FR: traduction en français]. If the learner answers in French or says they do not understand, simply note it and go on to the next question.
+After the learner has answered the 5th question, do NOT ask anything else. Write your final message entirely IN FRENCH (tutoiement, Quebec French), in this exact shape: first the tag [LEVEL: debutant] or [LEVEL: intermediaire] or [LEVEL: avance], then two or three short sentences: what the learner already does well, and what to work on next. Judge on vocabulary, grammar, sentence length and whether the answers fit the questions. Be honest and kind. Do not add [FR: ...] to that final message.`;
+const DEPART_EVALUATION = "Hi! Let's find your English level. I will ask you five short questions. Ready? First question: what is your name, and where do you live? [FR: Salut ! On va trouver ton niveau d'anglais. Je vais te poser cinq courtes questions. Prêt ? Première question : comment t'appelles-tu, et où habites-tu ?]";
 
 const EXAM_DURATION_SECONDS = 8 * 60;
 const EXAM_INSTRUCTIONS = `
@@ -999,7 +1055,10 @@ function resetConversation(scenarioKey) {
 
   const scenario = SCENARIOS[scenarioKey];
   const isExam = examToggle.checked && scenarioKey === "interview";
-  const systemPrompt = scenario.systemPrompt + TRANSLATION_INSTRUCTIONS + (isExam ? EXAM_INSTRUCTIONS : "");
+  const niveau = lireNiveau();
+  const systemPrompt = scenarioKey === EVALUATION
+    ? scenario.systemPrompt
+    : scenario.systemPrompt + TRANSLATION_INSTRUCTIONS + (niveau ? NIVEAUX[niveau].consigne : "") + (isExam ? EXAM_INSTRUCTIONS : "");
   history = [{ role: "system", content: systemPrompt }];
   chatWindow.innerHTML = "";
   const note = document.createElement("div");
@@ -1135,7 +1194,54 @@ scenarioSelect.addEventListener("change", (e) => {
   }
   resetConversation(e.target.value);
 });
-clearBtn.addEventListener("click", () => resetConversation(currentScenario));
+clearBtn.addEventListener("click", () => resetConversation(currentScenario === EVALUATION ? scenarioSelect.value : currentScenario));
+
+// ------------------------------------------------------------
+// Niveau : fenêtre de choix, évaluation en 5 questions.
+// ------------------------------------------------------------
+SCENARIOS[EVALUATION] = { label: "Évaluation de ton niveau", systemPrompt: PROMPT_EVALUATION, starter: DEPART_EVALUATION };
+const niveauModal = document.getElementById("niveauModal");
+const niveauBtn = document.getElementById("niveauBtn");
+function afficherNiveau() {
+  const n = lireNiveau();
+  niveauBtn.textContent = "🎯 Niveau : " + (n ? NIVEAUX[n].nom : "à choisir");
+  document.querySelectorAll("#niveauChoix button").forEach(b => b.classList.toggle("actif", b.dataset.niveau === n));
+}
+function enregistrerNiveau(n) {
+  if (!NIVEAUX[n]) return;
+  try { localStorage.setItem(NIVEAU_CLE, n); } catch (e) {}
+  afficherNiveau();
+}
+niveauBtn.addEventListener("click", () => { afficherNiveau(); niveauModal.classList.add("open"); });
+document.getElementById("niveauFermer").addEventListener("click", () => niveauModal.classList.remove("open"));
+document.querySelectorAll("#niveauChoix button").forEach(b => b.addEventListener("click", () => {
+  enregistrerNiveau(b.dataset.niveau);
+  niveauModal.classList.remove("open");
+  resetConversation(currentScenario === EVALUATION ? scenarioSelect.value : currentScenario);
+}));
+document.getElementById("niveauEvaluer").addEventListener("click", () => {
+  niveauModal.classList.remove("open");
+  examToggle.checked = false;
+  resetConversation(EVALUATION);
+});
+
+// Fin de l'évaluation : le tuteur donne le niveau dans une balise [LEVEL: ...].
+function terminerEvaluation(reply) {
+  const m = reply.match(/\[LEVEL:\s*(debutant|intermediaire|avance)\s*\]/i);
+  if (!m) return false;
+  const n = m[1].toLowerCase();
+  enregistrerNiveau(n);
+  const bilan = reply.replace(/\[LEVEL:[^\]]*\]/gi, "").replace(/\[FR:(.*?)\]/gs, "$1").trim();
+  const note = addMessage("system-note", "🎯 Ton niveau : " + NIVEAUX[n].nom + ". " + bilan);
+  note.style.fontStyle = "normal";
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = "▶ Commencer la pratique";
+  b.style.cssText = "display:block;margin:10px auto 0;padding:8px 14px;border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;font-family:inherit;";
+  b.addEventListener("click", () => resetConversation(scenarioSelect.value));
+  note.appendChild(b);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+  return true;
+}
 examToggle.addEventListener("change", () => {
   if (examToggle.checked && scenarioSelect.value !== "interview") {
     scenarioSelect.value = "interview";
@@ -1251,9 +1357,13 @@ composer.addEventListener("submit", async (e) => {
     thinking.remove();
     if (reply) {
       history.push({ role: "assistant", content: reply });
-      addMessage("ai", reply);
-      speak(reply);
-      logCorrections(reply, currentScenario);
+      if (currentScenario === EVALUATION && terminerEvaluation(reply)) {
+        // le bilan est en français : il est affiché, pas lu par la voix anglaise
+      } else {
+        addMessage("ai", reply);
+        speak(reply);
+        if (currentScenario !== EVALUATION) logCorrections(reply, currentScenario);
+      }
     }
   } catch (err) {
     thinking.remove();
@@ -1357,6 +1467,8 @@ if (SpeechRecognition) {
 // Init
 chargerPersos();
 resetConversation(currentScenario);
+afficherNiveau();
+if (!lireNiveau()) niveauModal.classList.add("open");
 </script>
 
 </body>
