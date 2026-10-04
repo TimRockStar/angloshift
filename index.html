@@ -515,7 +515,9 @@ const TRANSLATION_INSTRUCTIONS = `
 
 IMPORTANT — TRANSLATION: At the very end of EVERY one of your messages, without exception, add a French translation of your own English message like this, on its own line: [FR: traduction complète en français ici]. This is mandatory for every single message you send, even short ones — the learner needs it to check their understanding. If you are also giving a mistake correction, put [Correction: ...] first, then [FR: ...] after it.
 
-IMPORTANT — SPOKEN PRONUNCIATION OF CORRECTIONS: Whenever you give a [Correction: ...], you must ALSO naturally say the corrected English phrase as a normal part of your English reply (outside the brackets), not only inside the bracket. Example: if the learner said "I work here since two years" and you correct that to "I have been working here for two years", your visible English reply should actually contain the sentence "I have been working here for two years" somewhere (e.g. "Great, so you have been working here for two years — what does a typical day look like?"). This matters because the app reads your English reply out loud with real English pronunciation, and repeating the corrected phrase is how the learner hears the correct pronunciation.`;
+IMPORTANT — SPOKEN PRONUNCIATION OF CORRECTIONS: Whenever you give a [Correction: ...], you must ALSO naturally say the corrected English phrase as a normal part of your English reply (outside the brackets), not only inside the bracket. Example: if the learner said "I work here since two years" and you correct that to "I have been working here for two years", your visible English reply should actually contain the sentence "I have been working here for two years" somewhere (e.g. "Great, so you have been working here for two years — what does a typical day look like?"). This matters because the app reads your English reply out loud with real English pronunciation, and repeating the corrected phrase is how the learner hears the correct pronunciation.
+
+IMPORTANT — SPOKEN CORRECTION: Whenever you give a [Correction: ...], you must ALSO add, right after it, a short spoken version IN ENGLISH ONLY in this exact format: [Say: Quick correction. Instead of "what the learner said", say "the correct English sentence".] Keep it to one or two short sentences, friendly, with no French words at all, because it is read aloud by an English voice. Order when there is a mistake: your English reply, then [Correction: ...], then [Say: ...], then [FR: ...]. If the learner made no mistake, do not add [Say: ...].`;
 
 const EXAM_DURATION_SECONDS = 8 * 60;
 const EXAM_INSTRUCTIONS = `
@@ -607,7 +609,7 @@ function addMessage(role, text) {
     // ce soit clair d'un coup d'oeil.
     const corrections = [...text.matchAll(/\[Correction:(.*?)\]/gs)].map(m => m[1].trim());
     const translations = [...text.matchAll(/\[FR:(.*?)\]/gs)].map(m => m[1].trim());
-    const mainText = text.replace(/\[Correction:.*?\]/gs, "").replace(/\[FR:.*?\]/gs, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+    const mainText = text.replace(/\[Correction:.*?\]/gs, "").replace(/\[Say:.*?\]/gs, "").replace(/\[FR:.*?\]/gs, "").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 
     const mainSpan = document.createElement("div");
     mainSpan.className = "msg-main";
@@ -873,7 +875,9 @@ async function speak(text) {
   arreterLecture();
   const monNo = lectureNo;
 
-  const cleanText = text.replace(/\[Correction:.*?\]/gs, "").replace(/\[FR:.*?\]/gs, "").replace(/[ \t]{2,}/g, " ").trim();
+  // La correction dite à voix haute : une courte phrase en anglais, lue par la même voix que le tuteur.
+  const aDire = [...text.matchAll(/\[Say:(.*?)\]/gs)].map(m => m[1].trim()).filter(Boolean).join(" ");
+  const cleanText = (text.replace(/\[Correction:.*?\]/gs, "").replace(/\[Say:.*?\]/gs, "").replace(/\[FR:.*?\]/gs, "") + (aDire ? " " + aDire : "")).replace(/[ \t]{2,}/g, " ").trim();
 
   avatarParle(true);
   try {
@@ -1019,7 +1023,7 @@ async function callGroq() {
       reasoning_effort: 'none',
       messages: history,
       temperature: 0.7,
-      max_tokens: 300
+      max_tokens: 450
     })
   });
 
