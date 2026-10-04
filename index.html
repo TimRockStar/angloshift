@@ -2028,6 +2028,19 @@ function telechargerCertificat(e, prenom, dateISO) {
   document.body.appendChild(a); a.click(); a.remove();
 }
 
+// ---------- Empêche l'écran de s'éteindre pendant qu'on pratique ----------
+let verrouEcran = null;
+async function garderEcranAllume() {
+  if (!("wakeLock" in navigator) || verrouEcran || document.visibilityState !== "visible") return;
+  try {
+    verrouEcran = await navigator.wakeLock.request("screen");
+    verrouEcran.addEventListener("release", () => { verrouEcran = null; });
+  } catch (e) { verrouEcran = null; }
+}
+["pointerdown", "keydown"].forEach(ev => document.addEventListener(ev, garderEcranAllume));
+document.addEventListener("visibilitychange", garderEcranAllume);
+garderEcranAllume();
+
 chargerPersos();
 resetConversation(currentScenario);
 afficherNiveau();
