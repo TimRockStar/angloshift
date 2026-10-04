@@ -1041,6 +1041,15 @@ function lireAvecTelephone(texte, langue) {
   });
 }
 
+// Devine si un texte est surtout en français (résultat d'évaluation, ou tuteur qui se trompe de langue).
+function estFrancais(t) {
+  const mots = (" " + String(t).toLowerCase().replace(/[^a-zàâçéèêëîïôûùüœ' ]/g, " ") + " ");
+  const compte = (liste) => liste.reduce((n, m) => n + (mots.split(" " + m + " ").length - 1), 0);
+  const fr = compte(["le","la","les","un","une","des","est","et","tu","ton","ta","tes","que","qui","pour","avec","dans","pas","très","bien","quel","quelle","était","ce","je","as","du","au","sur"]) + (mots.match(/[àâçéèêëîïôûùœ]/g) || []).length;
+  const en = compte(["the","is","are","you","your","and","what","to","of","in","do","did","was","with","for","that","this","have","can","it","a","i","my","how"]);
+  return fr > en && fr >= 2;
+}
+
 async function speak(text) {
   if (!ttsToggle.checked) return;
   arreterLecture();
@@ -1059,6 +1068,7 @@ async function speak(text) {
   //    (courte, donc prête rapidement) et le reste en même temps, puis on joue dans l'ordre.
   // 2) Groq prend la relève pour ce qui reste si Gemini ne répond pas (morceaux de 190 caractères).
   let reste = cleanText;
+  const enFrancais = estFrancais(cleanText); // français : jamais lu par une voix anglaise
   const quotaAtteint = compteVoixIA(false) >= MAX_VOIX_IA_PAR_JOUR;
   if (quotaAtteint) raisons.push("limite quotidienne de la voix d'IA atteinte sur cet appareil");
   if (cleanText && !quotaAtteint) compteVoixIA(true);
@@ -1080,7 +1090,7 @@ async function speak(text) {
   }
   lu = !reste;
 
-  if (reste && !quotaAtteint) {
+  if (reste && !quotaAtteint && !enFrancais) {
     try {
       const demandes = couperEnMorceaux(reste).map(m => chercherAudio(m, voix, "groq"));
       demandes.forEach(d => d.catch(() => {}));
@@ -1103,7 +1113,7 @@ async function speak(text) {
       addMessage("system-note", "🔧 Voix d'IA indisponible, voix du téléphone utilisée. Détail : " + raisons.join(" | ").slice(0, 500));
     }
     if (audioEnCours) { try { audioEnCours.pause(); } catch (e2) {} audioEnCours = null; }
-    await lireAvecTelephone(reste, "en");
+    await lireAvecTelephone(reste, enFrancais ? "fr" : "en");
   } else if (raisons.length) {
     console.log("[AngloShift] Gemini indisponible, Groq utilisé :", raisons.join(" | "));
   }
@@ -1708,7 +1718,7 @@ const PARCOURS = {
 function promptEtape(e) {
   return `You are an English tutor running a guided lesson step for a French-Canadian adult learner. STEP GOAL: help the learner ${e.but}. Start by greeting the learner, say in one short sentence what you will practise together, and teach 3 useful phrases for this goal, each followed by its French meaning in parentheses. Then practise through realistic questions or a short role-play, ONE question at a time, always staying on this goal. Correct the learner's English mistakes gently, with the correction explained IN FRENCH in brackets like [Correction: ...].`;
 }
-const CONSIGNE_EVAL_ETAPE = `(The practice part is over. Now run the step evaluation. Ask exactly 4 short questions, ONE at a time, that check the step goal. During the evaluation do NOT correct mistakes and do NOT use "Repeat after me"; still add the [FR: ...] translation after each question. After the learner has answered the 4th question, ask nothing more: write your final message entirely IN FRENCH (tutoiement, Quebec French). It must start with the tag [RESULT: reussi] if the learner showed they can do the step goal reasonably well, or [RESULT: a_revoir] if not, followed by two short sentences: what went well and what to review. Do not add [FR: ...] to that final message. Start now with evaluation question 1.)`;
+const CONSIGNE_EVAL_ETAPE = `(The practice part is over. Now run the step evaluation. Ask exactly 4 short questions, ONE at a time, that check the step goal. Each of the 4 questions MUST be written IN ENGLISH (never in French); only the [FR: ...] part is in French. During the evaluation do NOT correct mistakes and do NOT use "Repeat after me"; still add the [FR: ...] translation after each question. After the learner has answered the 4th question, ask nothing more: ONLY then, write your final message entirely IN FRENCH (tutoiement, Quebec French). It must start with the tag [RESULT: reussi] if the learner showed they can do the step goal reasonably well, or [RESULT: a_revoir] if not, followed by two short sentences: what went well and what to review. Do not add [FR: ...] to that final message. Start now with evaluation question 1.)`;
 
 Object.keys(PARCOURS).forEach(niv => PARCOURS[niv].forEach((e, k) => {
   e.niveau = niv; e.numero = k + 1;
