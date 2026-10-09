@@ -84,8 +84,8 @@
   #avatarBar {
     display: flex;
     align-items: center;
-    gap: 18px;
-    padding: 16px 20px;
+    gap: 14px;
+    padding: 8px 16px;
     background: var(--card);
     border-bottom: 1px solid var(--border);
     max-width: 760px;
@@ -96,8 +96,8 @@
   #avatarPhotoWrap {
     position: relative;
     flex-shrink: 0;
-    width: 168px;
-    height: 168px;
+    width: 96px;
+    height: 96px;
   }
   #avatarPhotoClip {
     width: 100%;
@@ -107,8 +107,8 @@
     position: relative;
   }
   #avatarPhoto {
-    width: 168px;
-    height: 168px;
+    width: 96px;
+    height: 96px;
     border-radius: 50%;
     object-fit: cover;
     display: block;
@@ -361,6 +361,14 @@
     padding: 0 30px;
   }
   .empty-state strong { color: var(--navy); }
+
+  /* Fenêtre peu haute (ordinateur ou téléphone couché) : photo plus petite */
+  @media (max-height: 700px) {
+    #avatarBar { padding: 6px 12px; gap: 10px; }
+    #avatarPhotoWrap { width: 56px; height: 56px; }
+    #avatarPhoto { width: 56px; height: 56px; }
+    #avatarSoundwave { transform: scale(0.6); transform-origin: bottom right; }
+  }
 
   /* Téléphone : on compacte le haut pour laisser la place à la conversation */
   @media (max-width: 640px) {
