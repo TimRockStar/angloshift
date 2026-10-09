@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AngloShift — Tuteur IA d'anglais pour le travail</title>
+<link rel="icon" type="image/png" href="logo-192.png">
+<link rel="apple-touch-icon" href="logo-192.png">
 <style>
   :root {
     --navy: #1f3a5f;
@@ -36,6 +38,14 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 10px;
+  }
+  .marque { display: flex; align-items: center; gap: 12px; }
+  .marque img {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: white;
+    flex-shrink: 0;
   }
   header h1 {
     font-size: 1.15rem;
@@ -379,6 +389,8 @@
     header { padding: 8px 12px; gap: 8px; }
     header h1 { font-size: 1rem; }
     header .sub { display: none; }
+    .marque img { width: 32px; height: 32px; border-radius: 8px; }
+    .marque { gap: 8px; }
     .iconbtn { padding: 6px 9px; font-size: 0.75rem; }
     .toolbar { padding: 6px 12px; gap: 6px 8px; }
     .toolbar label { font-size: 0.72rem; margin-left: 0 !important; }
@@ -397,9 +409,12 @@
 <body>
 
 <header>
-  <div>
-    <h1>AngloShift 🍁</h1>
-    <div class="sub">Pratique ton anglais de travail avec un tuteur IA — entrevues, usine, collègues</div>
+  <div class="marque">
+    <img src="logo-96.png" alt="Logo AngloShift" width="44" height="44">
+    <div>
+      <h1>AngloShift 🍁</h1>
+      <div class="sub">Pratique ton anglais de travail avec un tuteur IA — entrevues, usine, collègues</div>
+    </div>
   </div>
   <div class="header-actions">
     <button class="iconbtn" id="parcoursBtn">🎓 Parcours</button>
