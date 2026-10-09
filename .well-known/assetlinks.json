@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.angloshift.twa",
+        "sha256_cert_fingerprints": ["C5:A6:7B:92:D4:5A:81:58:2B:7B:FC:CD:AC:F4:E4:72:69:53:AB:EA:76:C5:14:87:CA:FC:0C:33:D5:28:12:9C"]
+      }
+    }]
