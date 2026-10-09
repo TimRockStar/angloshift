@@ -442,8 +442,9 @@
     <input type="checkbox" id="ttsToggle" checked> Lire les réponses à voix haute
   </label>
 
-  <label for="voiceSelect" style="margin-left:8px;">Voix :</label>
-  <select id="voiceSelect" style="max-width: 220px;">
+  <!-- Menu des voix du navigateur caché : la voix d'IA (tuteur / tutrice) la remplace. Gardé pour la voix de secours. -->
+  <label for="voiceSelect" style="margin-left:8px; display:none;">Voix :</label>
+  <select id="voiceSelect" style="max-width: 220px; display:none;">
     <option value="">Chargement des voix...</option>
   </select>
 
