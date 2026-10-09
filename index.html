@@ -51,7 +51,10 @@
     display: flex;
     gap: 8px;
   }
-  button.iconbtn {
+  .iconbtn {
+    display: inline-block;
+    text-decoration: none;
+    font-family: inherit;
     background: rgba(255,255,255,0.12);
     color: white;
     border: none;
@@ -60,7 +63,7 @@
     font-size: 0.8rem;
     cursor: pointer;
   }
-  button.iconbtn:hover { background: rgba(255,255,255,0.22); }
+.iconbtn:hover { background: rgba(255,255,255,0.22); }
 
   .toolbar {
     background: var(--card);
@@ -376,7 +379,7 @@
     header { padding: 8px 12px; gap: 8px; }
     header h1 { font-size: 1rem; }
     header .sub { display: none; }
-    button.iconbtn { padding: 6px 9px; font-size: 0.75rem; }
+    .iconbtn { padding: 6px 9px; font-size: 0.75rem; }
     .toolbar { padding: 6px 12px; gap: 6px 8px; }
     .toolbar label { font-size: 0.72rem; margin-left: 0 !important; }
     .toolbar select { font-size: 0.78rem; padding: 4px 6px; max-width: 100%; }
@@ -402,6 +405,7 @@
     <button class="iconbtn" id="parcoursBtn">🎓 Parcours</button>
     <button class="iconbtn" id="progressBtn">📊 Mes progrès</button>
     <button class="iconbtn" id="clearBtn">Effacer</button>
+    <a class="iconbtn" id="avisBtn" href="mailto:bonjour@lancetonapp.com?subject=Commentaire%20AngloShift&amp;body=Ce%20qui%20marche%20bien%20%3A%0A%0A%0ACe%20qui%20ne%20va%20pas%20%28ou%20ce%20que%20tu%20aimerais%20avoir%29%20%3A%0A%0A%0ATon%20appareil%20%28t%C3%A9l%C3%A9phone%20ou%20ordinateur%2C%20et%20navigateur%29%20%3A%0A">💬 Avis</a>
   </div>
 </header>
 
