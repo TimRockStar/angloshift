@@ -6,6 +6,8 @@
 <title>AngloShift — Tuteur IA d'anglais pour le travail</title>
 <link rel="icon" type="image/png" href="logo-192.png">
 <link rel="apple-touch-icon" href="logo-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1f3a5f">
 <style>
   :root {
     --navy: #1f3a5f;
@@ -2119,5 +2121,10 @@ if (!lireNiveau()) niveauModal.classList.add("open");
 })();
 </script>
 
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+}
+</script>
 </body>
 </html>
