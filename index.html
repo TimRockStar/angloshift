@@ -1133,8 +1133,10 @@ async function speak(text) {
   if (reste && !lu) {
     console.log("[AngloShift] Voix d'IA indisponible, voix du téléphone utilisée :", raisons.join(" | "));
     if (!window._voixIASignalee) {
-      window._voixIASignalee = true; // diagnostic temporaire, une seule fois par visite
-      addMessage("system-note", "🔧 Voix d'IA indisponible, voix du téléphone utilisée. Détail : " + raisons.join(" | ").slice(0, 500));
+      window._voixIASignalee = true; // une seule fois par visite
+      addMessage("system-note", quotaAtteint
+        ? "🔈 Tu as atteint la limite de voix naturelle pour aujourd'hui. Une voix plus simple lit les réponses, et la voix naturelle revient demain."
+        : "🔈 La voix naturelle est momentanément indisponible. Une voix plus simple lit les réponses en attendant.");
     }
     if (audioEnCours) { try { audioEnCours.pause(); } catch (e2) {} audioEnCours = null; }
     await lireAvecTelephone(reste, enFrancais ? "fr" : "en");
