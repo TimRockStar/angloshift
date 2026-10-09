@@ -845,11 +845,7 @@ function loadVoices() {
   if (englishVoices.length === 0) {
     voiceSelect.innerHTML = '<option value="">Aucune voix anglaise trouvée</option>';
     voiceSelect.disabled = true;
-    voiceWarning.style.display = "block";
-    voiceWarning.textContent =
-      "⚠ Ton navigateur n'a trouvé aucune voix anglaise installée — c'est pour ça que tu entends un accent français essayer de lire l'anglais. " +
-      "Essaie Google Chrome (il inclut des voix anglaises même sans pack de langue), ou installe une voix anglaise dans les paramètres " +
-      "d'accessibilité / synthèse vocale de ton système d'exploitation, puis recharge cette page.";
+    // Avertissement jaune retiré : la voix d'IA remplace la voix du navigateur.
     return;
   }
 
