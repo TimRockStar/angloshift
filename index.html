@@ -620,6 +620,8 @@ let examActive = false; // true once an exam has started, until evaluated
 
 const TRANSLATION_INSTRUCTIONS = `
 
+IMPORTANT — GRAMMAR TERMS: When you explain a correction, explain it IN FRENCH but name only ENGLISH grammar points (for example past simple, present perfect, conditionals, phrasal verbs, prepositions, word order, idiomatic expressions). Never present French grammar notions such as "futur proche" or "subjonctif" as something to work on in English.
+
 IMPORTANT — TRANSLATION: At the very end of EVERY one of your messages, without exception, add a French translation of your own English message like this, on its own line: [FR: traduction complète en français ici]. This is mandatory for every single message you send, even short ones — the learner needs it to check their understanding. If you are also giving a mistake correction, put [Correction: ...] first, then [FR: ...] after it.
 
 IMPORTANT — SPOKEN PRONUNCIATION OF CORRECTIONS: Whenever you give a [Correction: ...], you must ALSO naturally say the corrected English phrase as a normal part of your English reply (outside the brackets), not only inside the bracket. Example: if the learner said "I work here since two years" and you correct that to "I have been working here for two years", your visible English reply should actually contain the sentence "I have been working here for two years" somewhere (e.g. "Great, so you have been working here for two years — what does a typical day look like?"). This matters because the app reads your English reply out loud with real English pronunciation, and repeating the corrected phrase is how the learner hears the correct pronunciation.
@@ -1412,7 +1414,7 @@ async function endExam(timedOut) {
 
   history.push({
     role: "user",
-    content: "[END OF MOCK INTERVIEW] Please now give me a short performance evaluation IN FRENCH: 2-3 strengths, 2-3 things to improve in my English (grammar, vocabulary, confidence), and one encouraging closing sentence. Be honest but supportive."
+    content: "[END OF MOCK INTERVIEW] Please now give me a short performance evaluation IN FRENCH: 2-3 strengths, 2-3 things to improve in my English (grammar, vocabulary, confidence), and one encouraging closing sentence. Name only ENGLISH grammar points (for example past simple, present perfect, conditionals, phrasal verbs, prepositions, idiomatic expressions), never French grammar notions such as \"futur proche\" or \"subjonctif\". Be honest but supportive."
   });
 
   const thinking = addMessage("system-note", "Préparation de ton évaluation...");
@@ -1747,7 +1749,7 @@ const PARCOURS = {
 function promptEtape(e) {
   return `You are an English tutor running a guided lesson step for a French-Canadian adult learner. STEP GOAL: help the learner ${e.but}. Start by greeting the learner, say in one short sentence what you will practise together, and teach 3 useful phrases for this goal, each followed by its French meaning in parentheses. Then practise through realistic questions or a short role-play, ONE question at a time, always staying on this goal. Correct the learner's English mistakes gently, with the correction explained IN FRENCH in brackets like [Correction: ...].`;
 }
-const CONSIGNE_EVAL_ETAPE = `(The practice part is over. Now run the step evaluation. Ask exactly 4 short questions, ONE at a time, that check the step goal. Each of the 4 questions MUST be written IN ENGLISH (never in French); only the [FR: ...] part is in French. During the evaluation do NOT correct mistakes and do NOT use "Repeat after me"; still add the [FR: ...] translation after each question. After the learner has answered the 4th question, ask nothing more: ONLY then, write your final message entirely IN FRENCH (tutoiement, Quebec French). It must start with the tag [RESULT: reussi] if the learner showed they can do the step goal reasonably well, or [RESULT: a_revoir] if not, followed by two short sentences: what went well and what to review. Do not add [FR: ...] to that final message. Start now with evaluation question 1.)`;
+const CONSIGNE_EVAL_ETAPE = `(The practice part is over. Now run the step evaluation. Ask exactly 4 short questions, ONE at a time, that check the step goal. Each of the 4 questions MUST be written IN ENGLISH (never in French); only the [FR: ...] part is in French. During the evaluation do NOT correct mistakes and do NOT use "Repeat after me"; still add the [FR: ...] translation after each question. After the learner has answered the 4th question, ask nothing more: ONLY then, write your final message entirely IN FRENCH (tutoiement, Quebec French). It must start with the tag [RESULT: reussi] if the learner showed they can do the step goal reasonably well, or [RESULT: a_revoir] if not, followed by two short sentences: what went well and what to review. When you say what to review, name only ENGLISH points (never French grammar notions such as "futur proche" or "subjonctif"). Do not add [FR: ...] to that final message. Start now with evaluation question 1.)`;
 
 Object.keys(PARCOURS).forEach(niv => PARCOURS[niv].forEach((e, k) => {
   e.niveau = niv; e.numero = k + 1;
