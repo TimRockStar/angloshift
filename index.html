@@ -948,7 +948,7 @@ if (savedGender === "female") {
 const ADRESSE_VOIX = GROQ_ENDPOINT + "/voix";
 const VOIX_IA = { male: "homme", female: "femme" };
 // Limite par appareil : au-delà, la voix du téléphone prend la relève. Protège la facture.
-const MAX_VOIX_IA_PAR_JOUR = 80; // réponses lues par la voix d'IA, par jour et par appareil (environ 3 ou 4 sessions)
+const MAX_VOIX_IA_PAR_JOUR = 150; // réponses lues par la voix d'IA, par jour et par appareil (relevé à 150 pendant le test fermé)
 function compteVoixIA(ajouter) {
   const j = new Date().toDateString();
   let c = { jour: j, n: 0 };
