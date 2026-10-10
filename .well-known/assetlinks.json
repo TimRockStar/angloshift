@@ -3,6 +3,9 @@
       "target": {
         "namespace": "android_app",
         "package_name": "com.angloshift.twa",
-        "sha256_cert_fingerprints": ["C5:A6:7B:92:D4:5A:81:58:2B:7B:FC:CD:AC:F4:E4:72:69:53:AB:EA:76:C5:14:87:CA:FC:0C:33:D5:28:12:9C"]
+        "sha256_cert_fingerprints": [
+          "C5:A6:7B:92:D4:5A:81:58:2B:7B:FC:CD:AC:F4:E4:72:69:53:AB:EA:76:C5:14:87:CA:FC:0C:33:D5:28:12:9C",
+          "D2:14:6F:F9:3C:17:52:FE:C1:58:E0:AA:09:2E:4C:AB:31:F6:99:C3:AD:A1:68:20:89:0C:D8:C1:9B:CC:DB:46"
+        ]
       }
     }]
