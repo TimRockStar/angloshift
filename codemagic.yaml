@@ -1,0 +1,32 @@
+workflows:
+  # Compilation de test, sans signature : vérifie que le projet Android se construit.
+  android-test:
+    name: AngloShift Android - test (sans signature)
+    instance_type: linux_x2
+    max_build_duration: 30
+    environment:
+      java: 17
+    scripts:
+      - name: Compiler (debug)
+        script: |
+          cd android
+          ./gradlew assembleDebug
+    artifacts:
+      - android/app/build/outputs/apk/debug/*.apk
+
+  # Version à envoyer au Play Store : bundle (.aab) signé avec la clé enregistrée dans Codemagic.
+  android-release:
+    name: AngloShift Android - release (.aab signé)
+    instance_type: linux_x2
+    max_build_duration: 30
+    environment:
+      java: 17
+      android_signing:
+        - angloshift_upload
+    scripts:
+      - name: Compiler le bundle (release)
+        script: |
+          cd android
+          ./gradlew bundleRelease
+    artifacts:
+      - android/app/build/outputs/bundle/release/*.aab
