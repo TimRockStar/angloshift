@@ -1,6 +1,6 @@
 // Service worker d'AngloShift : permet l'installation et un démarrage rapide.
 // La page est toujours demandée au réseau d'abord, pour que les mises à jour arrivent tout de suite.
-const VERSION = "angloshift-v1";
+const VERSION = "angloshift-v2";
 const FICHIERS = ["./", "logo-96.png", "logo-192.png", "logo-512.png", "manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {

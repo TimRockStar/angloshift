@@ -24,6 +24,12 @@
   .propulse { text-align:center; font-size:0.72rem; color:var(--grey); padding:2px 10px 8px; background:var(--card); }
   .propulse a { color:var(--accent); text-decoration:none; font-weight:600; }
   .propulse a:hover { text-decoration:underline; }
+  #ecran-accueil { position:fixed; inset:0; z-index:9999; background:#ffffff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; transition:opacity .45s ease; }
+  #ecran-accueil.sorti { opacity:0; pointer-events:none; }
+  #ecran-accueil img { width:128px; height:128px; border-radius:28px; }
+  #ecran-accueil .nom { font-size:2.2rem; font-weight:800; letter-spacing:.01em; color:#1a7fd9; background:linear-gradient(90deg,#1a7fd9 0%,#3aa0f0 38%,#f58a1f 72%,#ffa02e 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  #ecran-accueil .nom span { color:inherit; -webkit-text-fill-color:transparent; }
+  @media (prefers-reduced-motion: reduce) { #ecran-accueil { transition:none; } }
   * { box-sizing: border-box; }
   body {
     margin: 0;
@@ -413,6 +419,19 @@
 </style>
 </head>
 <body>
+
+<div id="ecran-accueil" aria-hidden="true">
+  <img src="logo-192.png" alt="" width="128" height="128">
+  <div class="nom">Anglo<span>Shift</span></div>
+</div>
+<script>
+(function(){
+  var e=document.getElementById('ecran-accueil'); if(!e) return;
+  var deja=false; try{ deja=sessionStorage.getItem('as-accueil')==='1'; sessionStorage.setItem('as-accueil','1'); }catch(x){}
+  if(deja){ e.remove(); return; }
+  setTimeout(function(){ e.classList.add('sorti'); setTimeout(function(){ e.remove(); },500); },1300);
+})();
+</script>
 
 <header>
   <div class="marque">
