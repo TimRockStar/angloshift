@@ -11,6 +11,7 @@
 <style>
   :root {
     --navy: #1f3a5f;
+    --head: #1f3a5f;
     --accent: #2e6f5e;
     --accent-light: #e8f3f0;
     --bg: #f4f6f8;
@@ -20,7 +21,37 @@
     --bubble-user: #1f3a5f;
     --bubble-ai: #eef1f4;
     --border: #e2e5ea;
+    --field: #ffffff;
+    --soft: #f3f5f8;
+    --soft2: #eef2f7;
+    --soft-border: #d7dde5;
   }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --navy: #9ec1ee;
+    --head: #16263f;
+    --accent: #34876f;
+    --accent-light: #1b3a33;
+    --bg: #10151c;
+    --card: #18202b;
+    --text: #e6e9ee;
+    --grey: #9aa4b2;
+    --bubble-user: #2c4d7c;
+    --bubble-ai: #232e3c;
+    --border: #2c3746;
+    --field: #202a37;
+    --soft: #232e3c;
+    --soft2: #232e3c;
+    --soft-border: #34414f;
+  }
+  :root[data-theme="dark"] #ecran-accueil { background: #10151c; }
+  :root[data-theme="dark"] .correction-note { background: #3a3216; border-left-color: #c99a1e; color: #f0d98a; }
+  :root[data-theme="dark"] .translation-text { background: #1b3a33; }
+  :root[data-theme="dark"] #voiceWarning { background: #3a3216 !important; color: #f0d98a !important; }
+  :root[data-theme="dark"] .modal button.secondary { background: #2c3746; }
+  :root[data-theme="dark"] .perso-ligne button { background: #4a2420; color: #f3b5ad; }
+  :root[data-theme="dark"] button[style*="#e9edf2"] { background: #2c3746 !important; }
+  :root[data-theme="dark"] #sessionEvalBtn.pret { box-shadow: 0 0 0 3px #2a5a4c; }
   .propulse { text-align:center; font-size:0.72rem; color:var(--grey); padding:2px 10px 8px; background:var(--card); }
   .propulse a { color:var(--accent); text-decoration:none; font-weight:600; }
   .propulse a:hover { text-decoration:underline; }
@@ -41,7 +72,7 @@
     flex-direction: column;
   }
   header {
-    background: var(--navy);
+    background: var(--head);
     color: white;
     padding: 14px 20px;
     display: flex;
@@ -102,7 +133,8 @@
     padding: 6px 10px;
     border-radius: 8px;
     border: 1px solid var(--border);
-    background: white;
+    background: var(--field);
+    color: var(--text);
     font-size: 0.85rem;
   }
 
@@ -165,7 +197,7 @@
     align-items: center;
     justify-content: center;
     gap: 3px;
-    box-shadow: 0 0 0 3px white;
+    box-shadow: 0 0 0 3px var(--card);
   }
   #avatarBar.talking #avatarSoundwave { display: flex; }
   #avatarSoundwave span {
@@ -189,8 +221,8 @@
     font-size: 0.75rem;
     padding: 2px 6px;
     border-radius: 6px;
-    border: 1px solid #d7dde5;
-    background: #fff;
+    border: 1px solid var(--soft-border);
+    background: var(--field);
     color: var(--navy);
     cursor: pointer;
   }
@@ -261,8 +293,8 @@
     font-size: 0.72rem;
     color: var(--navy);
     cursor: pointer;
-    background: #eef2f7;
-    border: 1px solid #d7dde5;
+    background: var(--soft2);
+    border: 1px solid var(--soft-border);
     border-radius: 12px;
     padding: 2px 10px;
   }
@@ -293,6 +325,8 @@
     padding: 12px 14px;
     border-radius: 10px;
     border: 1px solid var(--border);
+    background: var(--field);
+    color: var(--text);
     font-size: 0.95rem;
     font-family: inherit;
     resize: none;
@@ -309,7 +343,7 @@
     cursor: pointer;
   }
   button#micBtn {
-    background: var(--navy);
+    background: var(--head);
     padding: 0 14px;
   }
   button#micBtn.recording { background: #b5443a; }
@@ -325,7 +359,8 @@
   }
   .modal-backdrop.open { display: flex; }
   .modal {
-    background: white;
+    background: var(--card);
+    color: var(--text);
     border-radius: 14px;
     padding: 24px;
     width: 90%;
@@ -333,19 +368,19 @@
   }
   .modal h2 { margin-top: 0; font-size: 1.1rem; color: var(--navy); }
   .modal p { font-size: 0.85rem; color: var(--grey); line-height: 1.4; }
-  .niveau-btn { margin: 4px 0 0 6px; font-size: 0.75rem; padding: 3px 9px; border-radius: 99px; border: 1px solid #d7dde5; background: var(--accent-light); color: var(--navy); cursor: pointer; font-family: inherit; }
+  .niveau-btn { margin: 4px 0 0 6px; font-size: 0.75rem; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--soft-border); background: var(--accent-light); color: var(--navy); cursor: pointer; font-family: inherit; }
   .niveau-choix { display: grid; gap: 8px; margin: 12px 0; }
-  .niveau-choix button { text-align: left; padding: 10px 12px; background: #f3f5f8; color: var(--text); font-weight: 400; line-height: 1.3; }
+  .niveau-choix button { text-align: left; padding: 10px 12px; background: var(--soft); color: var(--text); font-weight: 400; line-height: 1.3; }
   .niveau-choix button b { display: block; color: var(--navy); }
   .niveau-choix button.actif { outline: 2px solid var(--accent); background: var(--accent-light); }
   #sessionBar { align-items: center; gap: 10px; padding: 8px 20px; background: var(--accent-light); border-bottom: 1px solid var(--border); max-width: 760px; margin: 0 auto; width: 100%; box-sizing: border-box; }
   #sessionTitre { font-weight: 700; color: var(--navy); font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #sessionTemps { font-size: 0.78rem; color: var(--grey); font-variant-numeric: tabular-nums; }
-  #sessionEvalBtn { border: none; border-radius: 8px; padding: 7px 11px; background: var(--navy); color: #fff; font-size: 0.78rem; cursor: pointer; font-family: inherit; white-space: nowrap; }
+  #sessionEvalBtn { border: none; border-radius: 8px; padding: 7px 11px; background: var(--head); color: #fff; font-size: 0.78rem; cursor: pointer; font-family: inherit; white-space: nowrap; }
   #sessionEvalBtn.pret { background: var(--accent); box-shadow: 0 0 0 3px #bfe0d6; }
   #sessionQuitter { border: none; background: transparent; color: var(--grey); font-size: 1rem; cursor: pointer; padding: 4px 6px; }
   .parcours-niveau { font-weight: 700; color: var(--navy); margin: 14px 0 6px; font-size: 0.9rem; }
-  .parcours-etape { display: block; width: 100%; text-align: left; margin: 0 0 6px; padding: 10px 12px; background: #f3f5f8; color: var(--text); font-weight: 400; }
+  .parcours-etape { display: block; width: 100%; text-align: left; margin: 0 0 6px; padding: 10px 12px; background: var(--soft); color: var(--text); font-weight: 400; }
   .parcours-etape.faite { background: var(--accent-light); }
   .parcours-etape.verrou { opacity: 0.55; cursor: not-allowed; }
   @media (max-width: 640px) { #sessionBar { padding: 6px 12px; } }
@@ -357,6 +392,8 @@
     padding: 10px;
     border-radius: 8px;
     border: 1px solid var(--border);
+    background: var(--field);
+    color: var(--text);
     font-size: 0.9rem;
     margin-top: 6px;
     margin-bottom: 14px;
@@ -417,6 +454,17 @@
     main { padding: 12px; }
   }
 </style>
+<script>
+(function(){
+  try {
+    var t = localStorage.getItem('angloshift-theme');
+    if (t !== 'dark' && t !== 'light') t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+  }
+})();
+</script>
 </head>
 <body>
 
@@ -442,12 +490,40 @@
     </div>
   </div>
   <div class="header-actions">
+    <button class="iconbtn" id="themeBtn" type="button" aria-label="Changer de thème" title="Mode sombre / clair">🌙</button>
     <button class="iconbtn" id="parcoursBtn">🎓 Parcours</button>
     <button class="iconbtn" id="progressBtn">📊 Mes progrès</button>
     <button class="iconbtn" id="clearBtn">Effacer</button>
     <a class="iconbtn" id="avisBtn" href="mailto:bonjour@lancetonapp.com?subject=Commentaire%20AngloShift&amp;body=Ce%20qui%20marche%20bien%20%3A%0A%0A%0ACe%20qui%20ne%20va%20pas%20%28ou%20ce%20que%20tu%20aimerais%20avoir%29%20%3A%0A%0A%0ATon%20appareil%20%28t%C3%A9l%C3%A9phone%20ou%20ordinateur%2C%20et%20navigateur%29%20%3A%0A">💬 Avis</a>
   </div>
 </header>
+<script>
+(function(){
+  var KEY = 'angloshift-theme', root = document.documentElement;
+  var btn = document.getElementById('themeBtn'), meta = document.querySelector('meta[name="theme-color"]');
+  function maj(){
+    var sombre = root.getAttribute('data-theme') === 'dark';
+    if (btn) { btn.textContent = sombre ? '☀️' : '🌙'; btn.setAttribute('aria-label', sombre ? 'Passer au mode clair' : 'Passer au mode sombre'); btn.title = sombre ? 'Mode clair' : 'Mode sombre'; }
+    if (meta) meta.setAttribute('content', sombre ? '#16263f' : '#1f3a5f');
+  }
+  maj();
+  if (btn) btn.addEventListener('click', function(){
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+    maj();
+  });
+  // Tant que l'utilisateur n'a pas choisi lui-même, on suit le réglage du téléphone.
+  if (window.matchMedia) {
+    var mq = matchMedia('(prefers-color-scheme: dark)');
+    var suivre = function(e){
+      var choix = null; try { choix = localStorage.getItem(KEY); } catch (x) {}
+      if (choix !== 'dark' && choix !== 'light') { root.setAttribute('data-theme', e.matches ? 'dark' : 'light'); maj(); }
+    };
+    if (mq.addEventListener) mq.addEventListener('change', suivre); else if (mq.addListener) mq.addListener(suivre);
+  }
+})();
+</script>
 
 <div class="toolbar">
   <label for="scenario">Scénario :</label>
