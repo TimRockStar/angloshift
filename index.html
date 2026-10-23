@@ -53,6 +53,18 @@
   :root[data-theme="dark"] .perso-ligne button { background: #4a2420; color: #f3b5ad; }
   :root[data-theme="dark"] button[style*="#e9edf2"] { background: #2c3746 !important; }
   :root[data-theme="dark"] #sessionEvalBtn.pret { box-shadow: 0 0 0 3px #2a5a4c; }
+  /* Tutoriel de bienvenue */
+  #tutoVoile { position:fixed; inset:0; z-index:10000; display:none; }
+  #tutoVoile.open { display:block; }
+  #tutoCadre { position:fixed; border-radius:12px; box-shadow:0 0 0 9999px rgba(0,0,0,.62); outline:3px solid var(--accent); pointer-events:none; transition:all .25s ease; }
+  #tutoCarte { position:fixed; left:12px; right:12px; max-width:380px; margin:0 auto; background:var(--card); color:var(--text); border-radius:14px; padding:16px 16px 12px; box-shadow:0 8px 30px rgba(0,0,0,.35); }
+  #tutoCarte h3 { margin:0 0 6px; font-size:1.05rem; }
+  #tutoCarte p { margin:0 0 12px; font-size:0.92rem; line-height:1.4; }
+  #tutoCarte .tuto-bas { display:flex; align-items:center; gap:8px; }
+  #tutoCarte .tuto-pas { font-size:0.75rem; color:var(--grey); flex:1; }
+  #tutoCarte button { border:0; border-radius:10px; padding:8px 14px; font-size:0.9rem; cursor:pointer; background:var(--accent); color:#fff; }
+  #tutoCarte button.sec { background:transparent; color:var(--grey); padding:8px 6px; }
+  @media (prefers-reduced-motion: reduce) { #tutoCadre { transition:none; } }
   .propulse { text-align:center; font-size:0.72rem; color:var(--grey); padding:2px 10px 8px; background:var(--card); }
   .propulse a { color:var(--accent); text-decoration:none; font-weight:600; }
   .propulse a:hover { text-decoration:underline; }
@@ -598,7 +610,21 @@
   <button type="submit" id="sendBtn">Envoyer</button>
 </form>
 
-<div class="propulse">Propulsé par <a href="https://lancetonapp.com" target="_blank" rel="noopener">Lance ton app</a> · <a id="evaluerBtn" href="https://play.google.com/store/apps/details?id=com.angloshift.app" target="_blank" rel="noopener">⭐ Évaluer l'app</a> · <a id="langueBtn" href="#">🌐 Langue / Language</a></div>
+<div class="propulse">Propulsé par <a href="https://lancetonapp.com" target="_blank" rel="noopener">Lance ton app</a> · <a id="evaluerBtn" href="https://play.google.com/store/apps/details?id=com.angloshift.app" target="_blank" rel="noopener">⭐ Évaluer l'app</a> · <a id="langueBtn" href="#">🌐 Langue / Language</a> · <a id="tutoBtn" href="#">❓ Guide</a></div>
+
+<!-- Tutoriel de bienvenue -->
+<div id="tutoVoile" role="dialog" aria-modal="true">
+  <div id="tutoCadre"></div>
+  <div id="tutoCarte">
+    <h3 id="tutoTitre"></h3>
+    <p id="tutoTexte"></p>
+    <div class="tuto-bas">
+      <span class="tuto-pas" id="tutoPas"></span>
+      <button type="button" class="sec" id="tutoPasser"></button>
+      <button type="button" id="tutoSuivant"></button>
+    </div>
+  </div>
+</div>
 
 <!-- Fenêtre : mon parcours -->
 <div class="modal-backdrop" id="parcoursModal">
@@ -2427,10 +2453,88 @@ garderEcranAllume();
   if (!CIBLE_CHOISIE) langueModal.classList.add("open"); // premier lancement
 })();
 
+// ------------------------------------------------------------
+// Tutoriel de bienvenue (une fois, puis relançable avec « Guide »)
+// ------------------------------------------------------------
+const TUTO_CLE = "angloshift_tuto_vu";
+const TUTO_ETAPES = [
+  { cible: "#scenario", titre: tr("Choisis une situation", "Pick a situation"),
+    texte: tr("Entrevue, urgence, rendez-vous médical, logement… ou crée la tienne. Le tuteur joue le rôle de l'autre personne.",
+              "Job interview, emergency, doctor's visit, housing… or create your own. The tutor plays the other person.") },
+  { cible: "#avatarGenderSelect", titre: tr("Ton tuteur", "Your tutor"),
+    texte: tr("Choisis un tuteur ou une tutrice. Il parle avec une vraie voix et te corrige gentiment.",
+              "Choose a male or female tutor. They speak with a natural voice and correct you kindly.") },
+  { cible: "#userInput", titre: tr("Écris ta réponse", "Write your answer"),
+    texte: tr("Réponds dans la langue que tu apprends. Si tu fais une faute, le tuteur te montre la correction.",
+              "Reply in the language you are learning. If you make a mistake, the tutor shows you the correction.") },
+  { cible: "#micBtn", titre: tr("Ou parle", "Or speak"),
+    texte: tr("Appuie sur le micro et dis ta phrase à voix haute pour t'entraîner à l'oral.",
+              "Tap the microphone and say your sentence aloud to practise speaking.") },
+  { cible: "#niveauBtn", titre: tr("Ton niveau", "Your level"),
+    texte: tr("Un petit test de 5 questions règle la difficulté pour toi. Tu peux le refaire quand tu veux.",
+              "A quick 5-question test sets the difficulty for you. You can retake it anytime.") },
+  { cible: "#parcoursBtn", titre: tr("Parcours et progrès", "Path and progress"),
+    texte: tr("« Parcours » te guide étape par étape. « Mes progrès » garde la trace de tes séances.",
+              "\u00ab Learning path \u00bb guides you step by step. \u00ab My progress \u00bb keeps track of your sessions.") },
+  { cible: "#themeBtn", titre: tr("Mode sombre", "Dark mode"),
+    texte: tr("Ce bouton passe de l'affichage clair à l'affichage sombre. Bonne pratique!",
+              "This button switches between light and dark display. Enjoy practising!") }
+];
+const tutoVoile = document.getElementById("tutoVoile");
+const tutoCadre = document.getElementById("tutoCadre");
+const tutoCarte = document.getElementById("tutoCarte");
+let tutoIdx = 0, tutoFin = null;
+
+function tutoMarquerVu() { try { localStorage.setItem(TUTO_CLE, "1"); } catch (e) {} }
+function tutoMontrer() {
+  const e = TUTO_ETAPES[tutoIdx];
+  document.getElementById("tutoTitre").textContent = e.titre;
+  document.getElementById("tutoTexte").textContent = e.texte;
+  document.getElementById("tutoPas").textContent = (tutoIdx + 1) + " / " + TUTO_ETAPES.length;
+  document.getElementById("tutoPasser").textContent = tr("Passer", "Skip");
+  document.getElementById("tutoSuivant").textContent = tutoIdx === TUTO_ETAPES.length - 1 ? tr("Terminer", "Done") : tr("Suivant", "Next");
+  const el = document.querySelector(e.cible);
+  const visible = el && el.getClientRects().length > 0;
+  if (visible) {
+    el.scrollIntoView({ block: "center", inline: "nearest" });
+    const r = el.getBoundingClientRect(), m = 5;
+    tutoCadre.style.cssText = "left:" + (r.left - m) + "px;top:" + (r.top - m) + "px;width:" + (r.width + 2 * m) + "px;height:" + (r.height + 2 * m) + "px;";
+    const place = window.innerHeight - r.bottom;
+    if (place > 190) { tutoCarte.style.top = (r.bottom + 14) + "px"; tutoCarte.style.bottom = "auto"; }
+    else { tutoCarte.style.bottom = (window.innerHeight - r.top + 14) + "px"; tutoCarte.style.top = "auto"; }
+  } else {
+    tutoCadre.style.cssText = "left:50%;top:40%;width:0;height:0;outline:none;";
+    tutoCarte.style.top = "30%"; tutoCarte.style.bottom = "auto";
+  }
+}
+function tutoFermer() {
+  tutoVoile.classList.remove("open");
+  tutoMarquerVu();
+  const f = tutoFin; tutoFin = null;
+  if (f) f();
+}
+function lancerTuto(apres) {
+  tutoIdx = 0; tutoFin = apres || null;
+  tutoVoile.classList.add("open");
+  tutoMontrer();
+}
+document.getElementById("tutoSuivant").addEventListener("click", () => {
+  if (tutoIdx >= TUTO_ETAPES.length - 1) tutoFermer(); else { tutoIdx++; tutoMontrer(); }
+});
+document.getElementById("tutoPasser").addEventListener("click", tutoFermer);
+document.addEventListener("keydown", ev => { if (ev.key === "Escape" && tutoVoile.classList.contains("open")) tutoFermer(); });
+window.addEventListener("resize", () => { if (tutoVoile.classList.contains("open")) tutoMontrer(); });
+document.getElementById("tutoBtn").addEventListener("click", ev => { ev.preventDefault(); lancerTuto(); });
+
+
 chargerPersos();
 resetConversation(currentScenario);
 afficherNiveau();
-if (CIBLE_CHOISIE && !lireNiveau()) niveauModal.classList.add("open");
+if (CIBLE_CHOISIE && !lireNiveau()) {
+  const ouvrirNiveau = () => niveauModal.classList.add("open");
+  let vu = false; try { vu = !!localStorage.getItem(TUTO_CLE); } catch (e) {}
+  if (vu) ouvrirNiveau(); else setTimeout(() => lancerTuto(ouvrirNiveau), 700);
+} else if (CIBLE_CHOISIE) { tutoMarquerVu(); } // utilisateur existant : pas de tutoriel forcé
 (function proposerReprise() {
   marquerSituations();
   const sv = lireSessionSauvee();
