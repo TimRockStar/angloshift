@@ -2409,10 +2409,45 @@ function telechargerCertificat(e, prenom, dateISO) {
   x.fillText(tr("Le " + d.toLocaleDateString("fr-CA", { year: "numeric", month: "long", day: "numeric" }), d.toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" })), 700, 760);
   x.font = "italic 24px Georgia, 'Times New Roman', serif";
   x.fillText(tr("Pratique de l'anglais au travail, une étape à la fois.", "Practising French at work, one step at a time."), 700, 850);
-  const a = document.createElement("a");
-  a.download = "certificat-angloshift-" + e.id + ".png";
-  a.href = c.toDataURL("image/png");
-  document.body.appendChild(a); a.click(); a.remove();
+  const nomFichier = "certificat-angloshift-" + e.id + ".png";
+  c.toBlob(async (blob) => {
+    if (!blob) { afficherCertificat(c.toDataURL("image/png")); return; }
+    // Téléphone : le menu « Partager » permet d'enregistrer l'image (Photos, Fichiers, Drive...).
+    const tactile = window.matchMedia && matchMedia("(pointer: coarse)").matches;
+    try {
+      const fichier = new File([blob], nomFichier, { type: "image/png" });
+      if (tactile && navigator.canShare && navigator.canShare({ files: [fichier] })) {
+        await navigator.share({ files: [fichier], title: tr("Mon certificat AngloShift", "My AngloShift certificate") });
+        return;
+      }
+    } catch (err) { if (err && err.name === "AbortError") return; }
+    // Ordinateur : téléchargement direct.
+    if (!tactile) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.download = nomFichier; a.href = url;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      return;
+    }
+    // Dernier recours : on affiche l'image pour que l'élève la garde (appui long).
+    afficherCertificat(URL.createObjectURL(blob));
+  }, "image/png");
+}
+function afficherCertificat(src) {
+  const v = document.createElement("div");
+  v.style.cssText = "position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;box-sizing:border-box;";
+  const img = document.createElement("img");
+  img.src = src; img.alt = tr("Certificat", "Certificate");
+  img.style.cssText = "max-width:100%;max-height:70vh;border-radius:8px;background:#fff;";
+  const t = document.createElement("div");
+  t.style.cssText = "color:#fff;text-align:center;font-size:0.9rem;";
+  t.textContent = tr("Garde ton doigt appuyé sur l'image, puis choisis « Télécharger l'image » ou « Enregistrer ».", "Press and hold the image, then choose “Download image” or “Save”.");
+  const f = document.createElement("button");
+  f.type = "button"; f.textContent = tr("Fermer", "Close");
+  f.style.cssText = "padding:10px 22px;border:none;border-radius:8px;background:#fff;color:#1f3a5f;font-weight:700;font-size:1rem;cursor:pointer;";
+  f.addEventListener("click", () => v.remove());
+  v.append(img, t, f); document.body.appendChild(v);
 }
 
 // ---------- Empêche l'écran de s'éteindre pendant qu'on pratique ----------
@@ -2577,9 +2612,13 @@ document.getElementById("tutoBtn").addEventListener("click", ev => { ev.preventD
 
 
 chargerPersos();
+let sessionRestauree = false;
 (function(){
-  const lb = lireLibre();
-  if (lb && !lireSessionSauvee()) {
+  const lb = lireLibre(), sv0 = lireSessionSauvee();
+  if (sv0 && (!lb || sv0.quand >= lb.quand)) {
+    // Une étape du parcours était en cours : on la reprend toute seule.
+    examToggle.checked = false; repriseSauvee = sv0; sessionRestauree = true; currentScenario = sv0.cle;
+  } else if (lb) {
     scenarioSelect.value = lb.cle;
     if (scenarioSelect.value === lb.cle) { repriseSauvee = lb; libreRestauree = true; currentScenario = lb.cle; }
   }
@@ -2594,6 +2633,7 @@ if (CIBLE_CHOISIE && !lireNiveau()) {
 (function proposerReprise() {
   marquerSituations();
   const sv = lireSessionSauvee();
+  if (sessionRestauree) return;
   if (!sv) {
     if (libreRestauree) return;
     // Pas d'étape en cours : on rappelle la progression gardée et on propose la suite.
