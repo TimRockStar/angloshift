@@ -1447,6 +1447,7 @@ const endExamBtn = document.getElementById("endExamBtn");
 const examToggle = document.getElementById("examToggle");
 
 function resetConversation(scenarioKey) {
+  if (!repriseSauvee) oublierLibre(); // nouvelle conversation (Effacer, autre scénario) : l'ancienne sauvegarde ne sert plus
   currentScenario = scenarioKey;
   stopExamTimer();
   examActive = false;
@@ -1802,6 +1803,7 @@ composer.addEventListener("submit", async (e) => {
         speak(reply);
         if (currentScenario !== EVALUATION && !(session && session.enEvaluation)) logCorrections(reply, currentScenario);
         if (/\[\s*END\s*\]/i.test(reply) && !(session && session.enEvaluation)) afficherFinDeSituation();
+        sauverLibre();
         if (session) {
           sauverSession();
           if (!session.enEvaluation && !session.inviteDonnee && session.messages >= 6) {
@@ -2205,6 +2207,24 @@ function afficherFinDeSituation() {
   chatWindow.scrollTop = chatWindow.scrollHeight;
 }
 
+// ---------- Pratique libre : la conversation en cours est gardée sur l'appareil ----------
+const LIBRE_CLE = "angloshift_libre" + SFX;
+function sauverLibre() {
+  if (session || examActive || currentScenario === EVALUATION) return;
+  if (!history.some(m => m.role === "user")) return; // rien à garder tant que l'utilisateur n'a pas écrit
+  try { localStorage.setItem(LIBRE_CLE, JSON.stringify({ cle: currentScenario, history: history, quand: Date.now() })); } catch (e) {}
+}
+function oublierLibre() { try { localStorage.removeItem(LIBRE_CLE); } catch (e) {} }
+function lireLibre() {
+  try {
+    const sv = JSON.parse(localStorage.getItem(LIBRE_CLE) || "null");
+    if (!sv || !SCENARIOS[sv.cle] || SCENARIOS[sv.cle].etape || !Array.isArray(sv.history) || sv.history.length < 3) return null;
+    if (Date.now() - sv.quand > 30 * 24 * 3600 * 1000) return null; // après un mois, on repart à neuf
+    return sv;
+  } catch (e) { return null; }
+}
+let libreRestauree = false;
+
 // ---------- Étape en cours : gardée sur l'appareil pour pouvoir la reprendre ----------
 const SESSION_CLE = "angloshift_session" + SFX;
 function sauverSession() {
@@ -2247,7 +2267,8 @@ function restaurerConversation(sv) {
     if (session.enEvaluation) sessionEvalBtn.style.display = "none";
     majTemps();
   }
-  addMessage("system-note", tr("▶ Étape reprise où tu l'avais laissée. Réponds au dernier message du tuteur.", "▶ Step resumed where you left off. Reply to the tutor's last message."));
+  if (session) addMessage("system-note", tr("▶ Étape reprise où tu l'avais laissée. Réponds au dernier message du tuteur.", "▶ Step resumed where you left off. Reply to the tutor's last message."));
+  else addMessage("system-note", tr("▶ Conversation reprise où tu l'avais laissée. Réponds au dernier message du tuteur, ou touche « Effacer » pour recommencer.", "▶ Conversation resumed where you left off. Reply to the tutor's last message, or tap “Clear” to start over."));
 }
 
 function arreterSession() {
@@ -2556,6 +2577,13 @@ document.getElementById("tutoBtn").addEventListener("click", ev => { ev.preventD
 
 
 chargerPersos();
+(function(){
+  const lb = lireLibre();
+  if (lb && !lireSessionSauvee()) {
+    scenarioSelect.value = lb.cle;
+    if (scenarioSelect.value === lb.cle) { repriseSauvee = lb; libreRestauree = true; currentScenario = lb.cle; }
+  }
+})();
 resetConversation(currentScenario);
 afficherNiveau();
 if (CIBLE_CHOISIE && !lireNiveau()) {
@@ -2567,6 +2595,7 @@ if (CIBLE_CHOISIE && !lireNiveau()) {
   marquerSituations();
   const sv = lireSessionSauvee();
   if (!sv) {
+    if (libreRestauree) return;
     // Pas d'étape en cours : on rappelle la progression gardée et on propose la suite.
     const p = lireParcours(), niv = lireNiveau();
     const nbS = Object.keys(p.situations).length, nbE = Object.keys(p.terminees).length;
