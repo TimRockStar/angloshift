@@ -2648,6 +2648,19 @@ async function verifierPremium(email) {
 }
 (function(){
   const pm = document.getElementById("premiumModal");
+  // Dans les apps Google Play / App Store : aucun bouton ni lien de paiement (règles des boutiques).
+  // On garde seulement l'activation pour les gens qui se sont abonnés sur le site.
+  const dansApp = /;\s*wv\)/.test(navigator.userAgent) || (window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()) || (document.referrer || "").indexOf("android-app://") === 0;
+  if (dansApp) {
+    ["premiumAn", "premiumMois", "premiumNote"].forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
+    const pt = document.getElementById("premiumTexte");
+    if (pt) pt.textContent = tr("Déjà abonné à Premium ? Active-le sur cet appareil avec ton courriel.", "Already subscribed to Premium? Activate it on this device with your email.");
+    const pd = document.getElementById("premiumDeja");
+    if (pd) pd.textContent = tr("Entre le courriel de ton abonnement.", "Enter the email of your subscription.");
+    const hr = pm.querySelector("hr"); if (hr) hr.remove();
+    const pbtn = document.getElementById("premiumBtn");
+    if (pbtn) pbtn.textContent = tr("✨ Activer Premium", "✨ Activate Premium");
+  }
   const msg = document.getElementById("premiumMsg");
   const champ = document.getElementById("premiumEmail");
   const btn = document.getElementById("premiumVerifier");
