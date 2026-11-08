@@ -68,6 +68,7 @@
   .propulse { text-align:center; font-size:0.72rem; color:var(--grey); padding:2px 10px 8px; background:var(--card); }
   .propulse a { color:var(--accent); text-decoration:none; font-weight:600; }
   .propulse a:hover { text-decoration:underline; }
+  .premium-lien { display:block; text-align:center; text-decoration:none; padding:12px; border-radius:10px; margin:8px 0; font-weight:600; background:var(--accent); color:#fff; }
   #ecran-accueil { position:fixed; inset:0; z-index:9999; background:#ffffff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; transition:opacity .45s ease; }
   #ecran-accueil.sorti { opacity:0; pointer-events:none; }
   #ecran-accueil img { width:128px; height:128px; border-radius:28px; }
@@ -636,7 +637,7 @@
   <button type="submit" id="sendBtn">Envoyer</button>
 </form>
 
-<div class="propulse">Propulsé par <a href="https://lancetonapp.com" target="_blank" rel="noopener">Lance ton app</a> · <a id="evaluerBtn" href="https://play.google.com/store/apps/details?id=com.angloshift.app" target="_blank" rel="noopener">⭐ Évaluer l'app</a> · <a id="langueBtn" href="#">🌐 Langue / Language</a> · <a id="tutoBtn" href="#">❓ Guide</a></div>
+<div class="propulse">Propulsé par <a href="https://lancetonapp.com" target="_blank" rel="noopener">Lance ton app</a> · <a id="evaluerBtn" href="https://play.google.com/store/apps/details?id=com.angloshift.app" target="_blank" rel="noopener">⭐ Évaluer l'app</a> · <a id="langueBtn" href="#">🌐 Langue / Language</a> · <a id="tutoBtn" href="#">❓ Guide</a> · <a id="premiumBtn" href="#">✨ Premium</a></div>
 
 <!-- Tutoriel de bienvenue -->
 <div id="tutoVoile" role="dialog" aria-modal="true">
@@ -660,6 +661,20 @@
     <div id="parcoursListe"></div>
     <div class="modal-actions">
       <button class="secondary" id="parcoursFermer">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fenêtre : Premium -->
+<div class="modal-backdrop" id="premiumModal">
+  <div class="modal" style="max-width: 440px;">
+    <h2 id="premiumTitre">✨ AngloShift Premium</h2>
+    <p id="premiumTexte">Pratique sans limite avec la voix naturelle de l'IA. Essai gratuit de 7 jours, annulable en tout temps.</p>
+    <a class="primary premium-lien" id="premiumAn" href="https://buy.stripe.com/fZu14ndLz74y0mfdxx5gc06" target="_blank" rel="noopener">Annuel : 59,99 $ CA/an (le plus avantageux)</a>
+    <a class="primary premium-lien" id="premiumMois" href="https://buy.stripe.com/14A6oH36VbkO4CvgJJ5gc05" target="_blank" rel="noopener">Mensuel : 9,99 $ CA/mois</a>
+    <p id="premiumNote" style="font-size:0.75rem;">Paiement sécurisé par Stripe. Une carte est demandée, mais rien n'est débité pendant les 7 premiers jours.</p>
+    <div class="modal-actions">
+      <button class="secondary" id="premiumFermer">Fermer</button>
     </div>
   </div>
 </div>
@@ -2486,7 +2501,11 @@ garderEcranAllume();
       ["label[for=persoNom]", "Scenario name"], ["label[for=persoDesc]", "The situation"],
       ["#persoAnnuler", "Close"], ["#persoEnregistrer", "Save"],
       ["#progressModal h2", "📊 My progress"], ["#resetProgress", "Reset"], ["#closeProgress", "Close"],
-      ["#reglagesBtn", "⚙️ Settings"], ["#evaluerBtn", "⭐ Rate the app"], ["#avisBtn", "💬 Feedback"]
+      ["#reglagesBtn", "⚙️ Settings"], ["#evaluerBtn", "⭐ Rate the app"], ["#avisBtn", "💬 Feedback"],
+      ["#premiumBtn", "✨ Premium"], ["#premiumTexte", "Practise without limits with the natural AI voice. 7-day free trial, cancel anytime."],
+      ["#premiumAn", "Yearly: CA$59.99/year (best value)"], ["#premiumMois", "Monthly: CA$9.99/month"],
+      ["#premiumNote", "Secure payment by Stripe. A card is required, but nothing is charged during the first 7 days."],
+      ["#premiumFermer", "Close"]
     ];
     textes.forEach(([sel, t]) => { const el = $(sel); if (el) el.textContent = t; });
     const niveauxHTML = {
@@ -2609,6 +2628,12 @@ document.getElementById("tutoPasser").addEventListener("click", tutoFermer);
 document.addEventListener("keydown", ev => { if (ev.key === "Escape" && tutoVoile.classList.contains("open")) tutoFermer(); });
 window.addEventListener("resize", () => { if (tutoVoile.classList.contains("open")) tutoMontrer(); });
 document.getElementById("tutoBtn").addEventListener("click", ev => { ev.preventDefault(); lancerTuto(); });
+(function(){
+  const pm = document.getElementById("premiumModal");
+  document.getElementById("premiumBtn").addEventListener("click", ev => { ev.preventDefault(); pm.classList.add("open"); });
+  document.getElementById("premiumFermer").addEventListener("click", () => pm.classList.remove("open"));
+  pm.addEventListener("click", ev => { if (ev.target === pm) pm.classList.remove("open"); });
+})();
 
 
 chargerPersos();
