@@ -673,6 +673,11 @@
     <a class="primary premium-lien" id="premiumAn" href="https://buy.stripe.com/fZu14ndLz74y0mfdxx5gc06" target="_blank" rel="noopener">Annuel : 59,99 $ CA/an (le plus avantageux)</a>
     <a class="primary premium-lien" id="premiumMois" href="https://buy.stripe.com/14A6oH36VbkO4CvgJJ5gc05" target="_blank" rel="noopener">Mensuel : 9,99 $ CA/mois</a>
     <p id="premiumNote" style="font-size:0.75rem;">Paiement sécurisé par Stripe. Une carte est demandée, mais rien n'est débité pendant les 7 premiers jours.</p>
+    <hr style="border:none;border-top:1px solid #8884;margin:12px 0;">
+    <p id="premiumDeja"><b>J'ai déjà Premium</b> : entre le courriel utilisé lors du paiement.</p>
+    <input type="text" id="premiumEmail" inputmode="email" autocomplete="email" placeholder="courriel@exemple.com" style="width:100%;box-sizing:border-box;">
+    <button class="primary" id="premiumVerifier" style="width:100%;margin-top:8px;">Vérifier mon abonnement</button>
+    <p id="premiumMsg" style="font-size:0.8rem;min-height:1.2em;"></p>
     <div class="modal-actions">
       <button class="secondary" id="premiumFermer">Fermer</button>
     </div>
@@ -1403,7 +1408,7 @@ async function speak(text) {
   // 2) Groq prend la relève pour ce qui reste si Gemini ne répond pas (morceaux de 190 caractères).
   let reste = cleanText;
   const enFrancais = estFrancais(cleanText); // français : jamais lu par une voix anglaise
-  const quotaAtteint = compteVoixIA(false) >= MAX_VOIX_IA_PAR_JOUR;
+  const quotaAtteint = compteVoixIA(false) >= (estPremium() ? 600 : MAX_VOIX_IA_PAR_JOUR);
   if (quotaAtteint) raisons.push("limite quotidienne de la voix d'IA atteinte sur cet appareil");
   if (cleanText && !quotaAtteint) compteVoixIA(true);
   if (cleanText && !quotaAtteint) {
@@ -2505,7 +2510,9 @@ garderEcranAllume();
       ["#premiumBtn", "✨ Premium"], ["#premiumTexte", "Practise without limits with the natural AI voice. 7-day free trial, cancel anytime."],
       ["#premiumAn", "Yearly: CA$59.99/year (best value)"], ["#premiumMois", "Monthly: CA$9.99/month"],
       ["#premiumNote", "Secure payment by Stripe. A card is required, but nothing is charged during the first 7 days."],
-      ["#premiumFermer", "Close"]
+      ["#premiumFermer", "Close"],
+      ["#premiumDeja", "I already have Premium: enter the email you used when paying."],
+      ["#premiumVerifier", "Check my subscription"]
     ];
     textes.forEach(([sel, t]) => { const el = $(sel); if (el) el.textContent = t; });
     const niveauxHTML = {
@@ -2628,8 +2635,52 @@ document.getElementById("tutoPasser").addEventListener("click", tutoFermer);
 document.addEventListener("keydown", ev => { if (ev.key === "Escape" && tutoVoile.classList.contains("open")) tutoFermer(); });
 window.addEventListener("resize", () => { if (tutoVoile.classList.contains("open")) tutoMontrer(); });
 document.getElementById("tutoBtn").addEventListener("click", ev => { ev.preventDefault(); lancerTuto(); });
+const ADRESSE_PREMIUM = "https://angloshift-premium.smartgrocer.workers.dev/check";
+const PREMIUM_CLE = "angloshift_premium";
+function estPremium() {
+  try { const v = JSON.parse(localStorage.getItem(PREMIUM_CLE) || "null"); return !!(v && v.email); } catch (e) { return false; }
+}
+async function verifierPremium(email) {
+  const r = await fetch(ADRESSE_PREMIUM + "?email=" + encodeURIComponent(email));
+  const d = await r.json();
+  if (!r.ok && d.erreur !== "email") throw new Error("serveur");
+  return d.premium === true;
+}
 (function(){
   const pm = document.getElementById("premiumModal");
+  const msg = document.getElementById("premiumMsg");
+  const champ = document.getElementById("premiumEmail");
+  const btn = document.getElementById("premiumVerifier");
+  try { const v = JSON.parse(localStorage.getItem(PREMIUM_CLE) || "null"); if (v && v.email) champ.value = v.email; } catch (e) {}
+  function afficherEtat() {
+    if (estPremium()) msg.textContent = tr("✅ Premium actif sur cet appareil. Merci!", "✅ Premium is active on this device. Thank you!");
+  }
+  afficherEtat();
+  btn.addEventListener("click", async () => {
+    const email = champ.value.trim().toLowerCase();
+    if (!email) { msg.textContent = tr("Entre ton courriel.", "Enter your email."); return; }
+    msg.textContent = tr("Vérification…", "Checking…");
+    try {
+      if (await verifierPremium(email)) {
+        try { localStorage.setItem(PREMIUM_CLE, JSON.stringify({ email: email, quand: Date.now() })); } catch (e) {}
+        afficherEtat();
+      } else {
+        msg.textContent = tr("Aucun abonnement actif trouvé pour ce courriel. Vérifie l'adresse utilisée lors du paiement.", "No active subscription found for this email. Check the address you used when paying.");
+      }
+    } catch (e) {
+      msg.textContent = tr("Impossible de vérifier pour le moment. Réessaie plus tard.", "Could not check right now. Please try again later.");
+    }
+  });
+  // Revérifie en silence une fois par jour : si l'abonnement est terminé, Premium s'arrête.
+  try {
+    const v = JSON.parse(localStorage.getItem(PREMIUM_CLE) || "null");
+    if (v && v.email && Date.now() - (v.quand || 0) > 86400000) {
+      verifierPremium(v.email).then(ok => {
+        if (ok) localStorage.setItem(PREMIUM_CLE, JSON.stringify({ email: v.email, quand: Date.now() }));
+        else localStorage.removeItem(PREMIUM_CLE);
+      }).catch(() => {});
+    }
+  } catch (e) {}
   document.getElementById("premiumBtn").addEventListener("click", ev => { ev.preventDefault(); pm.classList.add("open"); });
   document.getElementById("premiumFermer").addEventListener("click", () => pm.classList.remove("open"));
   pm.addEventListener("click", ev => { if (ev.target === pm) pm.classList.remove("open"); });
