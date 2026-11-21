@@ -638,7 +638,7 @@
   <button type="submit" id="sendBtn">Envoyer</button>
 </form>
 
-<div class="propulse">Propulsé par <a href="https://lancetonapp.com" target="_blank" rel="noopener">Lance ton app</a> · <a id="evaluerBtn" href="https://play.google.com/store/apps/details?id=com.angloshift.app" target="_blank" rel="noopener">⭐ Évaluer l'app</a> · <a id="langueBtn" href="#">🌐 Langue / Language</a> · <a id="tutoBtn" href="#">❓ Guide</a> · <a id="premiumBtn" href="#">✨ Premium</a></div>
+<div class="propulse">Propulsé par <a href="https://lancetonapp.com" target="_blank" rel="noopener">Lance ton app</a> · <a id="evaluerBtn" href="https://play.google.com/store/apps/details?id=com.angloshift.app" target="_blank" rel="noopener">⭐ Évaluer l'app</a> · <a id="langueBtn" href="#">🌐 Langue / Language</a> · <a id="tutoBtn" href="#">❓ Guide</a> · <a id="premiumBtn" href="#">✨ Premium</a> · <a id="transfertBtn" href="#">🔄 Transférer</a></div>
 
 <!-- Tutoriel de bienvenue -->
 <div id="tutoVoile" role="dialog" aria-modal="true">
@@ -681,6 +681,23 @@
     <p id="premiumMsg" style="font-size:0.8rem;min-height:1.2em;"></p>
     <div class="modal-actions">
       <button class="secondary" id="premiumFermer">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fenêtre : transférer la progression -->
+<div class="modal-backdrop" id="transfertModal">
+  <div class="modal" style="max-width: 460px; max-height: 88vh; overflow-y: auto;">
+    <h2 id="transfertTitre">🔄 Transférer ma progression</h2>
+    <p id="transfertTexte" style="font-size:0.85rem;">Pour garder ta progression sur un autre appareil : copie le code ici, envoie-le-toi (courriel, texto), puis colle-le dans AngloShift sur l'autre appareil.</p>
+    <button class="primary" id="transfertCopier" style="width:100%;">📋 Copier mon code</button>
+    <hr style="border:none;border-top:1px solid #8884;margin:12px 0;">
+    <p id="transfertDeja" style="font-size:0.85rem;"><b>Sur le nouvel appareil</b> : colle ton code ici.</p>
+    <textarea id="transfertCode" rows="4" style="width:100%;box-sizing:border-box;" placeholder="ANGLO1:..."></textarea>
+    <button class="primary" id="transfertRestaurer" style="width:100%;margin-top:8px;">Restaurer ma progression</button>
+    <p id="transfertMsg" style="font-size:0.8rem;min-height:1.2em;"></p>
+    <div class="modal-actions">
+      <button class="secondary" id="transfertFermer">Fermer</button>
     </div>
   </div>
 </div>
@@ -2698,6 +2715,70 @@ async function verifierPremium(email) {
   document.getElementById("premiumBtn").addEventListener("click", ev => { ev.preventDefault(); pm.classList.add("open"); });
   document.getElementById("premiumFermer").addEventListener("click", () => pm.classList.remove("open"));
   pm.addEventListener("click", ev => { if (ev.target === pm) pm.classList.remove("open"); });
+})();
+
+// ----- Transfert de la progression vers un autre appareil (code texte copié-collé) -----
+(function(){
+  const tm = document.getElementById("transfertModal");
+  const msg = document.getElementById("transfertMsg");
+  const zone = document.getElementById("transfertCode");
+  const PREFIXE = "ANGLO1:";
+  const EXCLUES = ["angloshift_voice_name", "angloshift_avatar_gender", "angloshift_voix_ia"]; // propres à chaque appareil
+  document.getElementById("transfertTitre").textContent = tr("🔄 Transférer ma progression", "🔄 Transfer my progress");
+  document.getElementById("transfertTexte").textContent = tr("Pour garder ta progression sur un autre appareil : copie ton code ici, envoie-le-toi (courriel, texto), puis colle-le dans AngloShift sur l'autre appareil.", "To keep your progress on another device: copy your code here, send it to yourself (email, text), then paste it into AngloShift on the other device.");
+  document.getElementById("transfertCopier").textContent = tr("📋 Copier mon code", "📋 Copy my code");
+  document.getElementById("transfertDeja").innerHTML = tr("<b>Sur le nouvel appareil</b> : colle ton code ici.", "<b>On the new device</b>: paste your code here.");
+  document.getElementById("transfertRestaurer").textContent = tr("Restaurer ma progression", "Restore my progress");
+  document.getElementById("transfertFermer").textContent = tr("Fermer", "Close");
+  document.getElementById("transfertBtn").textContent = tr("🔄 Transférer", "🔄 Transfer");
+  function fabriquerCode() {
+    const data = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf("angloshift_") === 0 && EXCLUES.indexOf(k) === -1) data[k] = localStorage.getItem(k);
+    }
+    const bytes = new TextEncoder().encode(JSON.stringify(data));
+    let bin = ""; bytes.forEach(b => { bin += String.fromCharCode(b); });
+    return PREFIXE + btoa(bin);
+  }
+  function lireCode(code) {
+    code = (code || "").trim();
+    if (code.indexOf(PREFIXE) !== 0) throw new Error("format");
+    const bin = atob(code.slice(PREFIXE.length).replace(/\s+/g, ""));
+    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+    const data = JSON.parse(new TextDecoder().decode(bytes));
+    if (!data || typeof data !== "object") throw new Error("format");
+    return data;
+  }
+  document.getElementById("transfertCopier").addEventListener("click", async () => {
+    let code;
+    try { code = fabriquerCode(); } catch (e) { msg.textContent = tr("Impossible de préparer le code.", "Could not prepare the code."); return; }
+    zone.value = code;
+    try {
+      await navigator.clipboard.writeText(code);
+      msg.textContent = tr("✅ Code copié! Colle-le dans un message que tu t'envoies.", "✅ Code copied! Paste it into a message you send to yourself.");
+    } catch (e) {
+      zone.select();
+      msg.textContent = tr("Copie le code affiché dans la case (appui long, puis Copier).", "Copy the code shown in the box (long press, then Copy).");
+    }
+  });
+  document.getElementById("transfertRestaurer").addEventListener("click", () => {
+    let data;
+    try { data = lireCode(zone.value); } catch (e) {
+      msg.textContent = tr("Code invalide. Colle le code complet, qui commence par ANGLO1:", "Invalid code. Paste the full code, which starts with ANGLO1:");
+      return;
+    }
+    try {
+      Object.keys(data).forEach(k => {
+        if (k.indexOf("angloshift_") === 0 && EXCLUES.indexOf(k) === -1 && typeof data[k] === "string") localStorage.setItem(k, data[k]);
+      });
+    } catch (e) { msg.textContent = tr("Impossible d'enregistrer sur cet appareil.", "Could not save on this device."); return; }
+    msg.textContent = tr("✅ Progression restaurée! Rechargement…", "✅ Progress restored! Reloading…");
+    setTimeout(() => location.reload(), 900);
+  });
+  document.getElementById("transfertBtn").addEventListener("click", ev => { ev.preventDefault(); msg.textContent = ""; zone.value = ""; tm.classList.add("open"); });
+  document.getElementById("transfertFermer").addEventListener("click", () => tm.classList.remove("open"));
+  tm.addEventListener("click", ev => { if (ev.target === tm) tm.classList.remove("open"); });
 })();
 
 
