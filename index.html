@@ -2742,12 +2742,20 @@ async function verifierPremium(email) {
     return PREFIXE + btoa(bin);
   }
   function lireCode(code) {
-    code = (code || "").trim();
-    if (code.indexOf(PREFIXE) !== 0) throw new Error("format");
-    const bin = atob(code.slice(PREFIXE.length).replace(/\s+/g, ""));
-    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
-    const data = JSON.parse(new TextDecoder().decode(bytes));
-    if (!data || typeof data !== "object") throw new Error("format");
+    code = code || "";
+    const i = code.indexOf(PREFIXE);
+    if (i < 0) throw new Error("prefixe");
+    // Ignore tout ce qui précède ANGLO1: et les caractères parasites (espaces, sauts de ligne, caractères invisibles)
+    let corps = code.slice(i + PREFIXE.length).replace(/-/g, "+").replace(/_/g, "/").replace(/[^A-Za-z0-9+\/]/g, "");
+    while (corps.length % 4) corps += "=";
+    let bin;
+    try { bin = atob(corps); } catch (e) { const er = new Error("base64"); er.n = corps.length; throw er; }
+    let data;
+    try {
+      const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      data = JSON.parse(new TextDecoder().decode(bytes));
+    } catch (e) { const er = new Error("contenu"); er.n = corps.length; throw er; }
+    if (!data || typeof data !== "object") { const er = new Error("contenu"); er.n = corps.length; throw er; }
     return data;
   }
   document.getElementById("transfertCopier").addEventListener("click", async () => {
@@ -2765,7 +2773,11 @@ async function verifierPremium(email) {
   document.getElementById("transfertRestaurer").addEventListener("click", () => {
     let data;
     try { data = lireCode(zone.value); } catch (e) {
-      msg.textContent = tr("Code invalide. Colle le code complet, qui commence par ANGLO1:", "Invalid code. Paste the full code, which starts with ANGLO1:");
+      if (e && e.message === "prefixe") {
+        msg.textContent = tr("Code invalide : je ne trouve pas « ANGLO1: » dans ce que tu as collé. Colle le code complet.", "Invalid code: I can't find \"ANGLO1:\" in what you pasted. Paste the full code.");
+      } else {
+        msg.textContent = tr("Code illisible (" + (e && e.n || 0) + " caractères lus). Il a peut-être été modifié ou coupé : recopie-le depuis l'appli d'origine.", "Unreadable code (" + (e && e.n || 0) + " characters read). It may have been altered or cut: copy it again from the original app.");
+      }
       return;
     }
     try {
